@@ -14,27 +14,48 @@ class BibbiVare:
 
 
 @dataclass
-class BibbiPerson:
+class Person:
+    id: str
     name: str
-    nasj: str
     dates: str
+
+    def __str__(self):
+        out = '%s %s' % (self.id, self.name)
+        if self.dates != '':
+            out += ' %s' % self.dates
+        return out
+
+
+@dataclass
+class BibbiPerson(Person):
+    # Bibbi person
+    nasj: str
+    bare_id: Optional[str]
     newest_approved: Optional[datetime] = None
     items: List[BibbiVare] = field(default_factory=list)
 
 
 @dataclass
-class BarePerson:
-    id: str
-    name: str
-    dates: str = ''
+class BarePerson(Person):
+    # Reference to a BARE person record, not a complete record
     alt_names: List[str] = field(default_factory=list)
 
 
 @dataclass
-class ViafPerson:
+class BareRecord():
+    # A complete BARE record
     id: str
-    name: str = ''
-    dates: str = ''
+    name: str
+    bibbi_ids: List[str] = field(default_factory=list)
+
+
+@dataclass
+class BarePersonRecord(BareRecord, BarePerson):
+    pass
+
+
+@dataclass
+class ViafPerson(Person):
     alt_names: List[str] = field(default_factory=list)
 
 

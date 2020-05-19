@@ -40,6 +40,7 @@ def test_first_returns_none_if_not_found(test_node: XmlNode):
 def test_raise_on_text_node_not_found(test_node: XmlNode):
     with pytest.raises(NodeNotFound):
         test_node.text(':id/:example')
+    assert 'def' == test_node.text(':id/:example', default='def')
 
 
 def test_serialize(test_node):

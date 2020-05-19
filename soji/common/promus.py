@@ -37,9 +37,8 @@ BibbiPersons = Dict[str, BibbiPerson]
 
 @dataclass
 class QueryFilter:
-    name: str
-    operator: str
-    value: str
+    stmt: str
+    param: Optional[str] = None
 
 
 class Promus:
@@ -63,8 +62,10 @@ class Persons:
     def __init__(self, conn: Promus):
         self.conn = conn
 
-    def get(self, bibbi_id) -> Optional[BibbiPerson]:
-        results = self.list([QueryFilter(name='person.Bibsent_ID', operator='=', value=bibbi_id)])
+    def get(self, bibbi_id: str) -> Optional[BibbiPerson]:
+        results = self.list([
+            QueryFilter('person.Bibsent_ID = ?', bibbi_id)
+        ])
         if bibbi_id in results:
             return results[bibbi_id]
         return None
@@ -83,7 +84,8 @@ class Persons:
             iv1.Text AS Isbn,
             item.Title,
             iv2.Text as OriginalTitle,
-            item.ApproveDate
+            item.ApproveDate,
+            person.NB_ID
 
         FROM AuthorityPerson AS person
 
@@ -95,25 +97,26 @@ class Persons:
         WHERE
             person.ReferenceNr IS NULL
             AND person.Felles_ID = person.Bibsent_ID
-            AND person.NB_ID IS NULL
             AND item.ApproveDate IS NOT NULL
 
         %(filters)s
 
         ORDER BY person.Bibsent_ID
         """ % {
-            'filters': ' '.join(['AND %s %s ?' % (filt.name, filt.operator) for filt in filters])
+            'filters': ' '.join(['AND %s' % filt.stmt for filt in filters])
         }
 
-        filter_params = [filt.value for filt in filters]
+        filter_params = [filt.param for filt in filters if filt.param is not None]
 
         persons: dict = {}
         with self.conn.cursor() as cursor:
             cursor.execute(query, filter_params)
             for row in cursor:
-                bibbi_id = row[0]
+                bibbi_id = str(row[0])
                 if bibbi_id not in persons:
                     persons[bibbi_id] = BibbiPerson(
+                        id=bibbi_id,
+                        bare_id=row[8],
                         name=row[1],
                         dates=row[2] or '',
                         nasj=row[3],

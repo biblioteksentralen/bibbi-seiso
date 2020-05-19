@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Generator, Optional
+from typing import Generator, Optional, List
 from lxml import etree  # type: ignore
 import re
 
@@ -25,32 +25,36 @@ class XmlNode:
             path = re.sub('(^|/):', r'\1{%s}' % self.ns, path)
         return path
 
-    def all(self, path: str, xpath: bool = False) -> Generator[XmlNode, None, None]:
+    def all(self, path: str, xpath: bool = False) -> List[XmlNode]:
         if xpath:
-            for node in self.node.xpath(self.path(path, xpath=True),
-                                        namespaces=self.nsmap):
-                yield self.make(node)
+            return [
+                self.make(node)
+                for node in self.node.xpath(self.path(path, xpath=True), namespaces=self.nsmap)
+            ]
         else:
-            for node in self.node.findall(self.path(path)):
-                yield self.make(node)
+            return [
+                self.make(node)
+                for node in self.node.findall(self.path(path))
+            ]
 
     def first(self, path: str, xpath: bool = False) -> Optional[XmlNode]:
         try:
-            return next(self.all(path, xpath))
-        except StopIteration:
+            return self.all(path, xpath)[0]
+        except IndexError:
             return None
 
-    def text(self, path: str = None, xpath: bool = False) -> str:
+    def text(self, path: str = None, xpath: bool = False, default: str = None) -> str:
         if path is None:
             return self.node.text
         node = self.first(path, xpath)
         if node is None:
+            if default is not None:
+                return default
             raise NodeNotFound()
         return node.text()
 
-    def all_text(self, path: str) -> Generator[str, None, None]:
-        for node in self.node.findall(self.path(path)):
-            yield node.text
+    def all_text(self, path: str, xpath: bool = False) -> List[str]:
+        return [node.text() for node in self.all(path, xpath)]
 
     def serialize(self):
         return etree.tostring(self.node,

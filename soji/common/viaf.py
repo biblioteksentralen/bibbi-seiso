@@ -20,7 +20,7 @@ def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, BarePers
             person = BarePerson(
                 id=heading_id,
                 name=heading.text(':datafield/:subfield[@code="a"]', xpath=True),
-                dates=heading.text(':datafield/:subfield[@code="d"]', xpath=True)
+                dates=heading.text(':datafield/:subfield[@code="d"]', xpath=True, default='')
             )
 
     # x400s
@@ -32,7 +32,7 @@ def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, BarePers
                         person.alt_names.append(subfield.text())
         return person
 
-    return ViafPerson(id=cluster.text(':viafID'))
+    return ViafPerson(id=cluster.text(':viafID'), name='', dates='')
 
 
 def get_viaf_candidates(query: str, session: Session = None) -> Generator[Candidate, None, None]:

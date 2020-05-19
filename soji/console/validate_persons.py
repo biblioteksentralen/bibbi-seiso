@@ -113,45 +113,6 @@ class Promus:
         return ids
 
 
-class BareRecord:
-
-    def __init__(self, record_el):
-        self.id = record_el.xpath('marc:controlfield[@tag="001"]/text()',
-                                  namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'})[0]
-
-        self.name = ''
-        for node in record_el.xpath('marc:datafield[@tag="100"]/marc:subfield[@code="a"]',
-                                    namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}):
-            self.name = node.text
-
-        # TODO: Sjekke 400-felt!!
-
-        self.dates = ''
-        for node in record_el.xpath('marc:datafield[@tag="100"]/marc:subfield[@code="d"]',
-                                    namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}):
-            self.dates = node.text
-
-        self.bibbi_ids = []
-        for node in record_el.xpath(
-            'marc:datafield[@tag="024"][./marc:subfield[@code="2"]/text() = "bibbi"]/marc:subfield[@code="a"]',
-            namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}
-        ):
-            self.bibbi_ids.append(node.text)
-
-    def as_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'dates': self.dates,
-        }
-
-    def __str__(self):
-        out = '%s %s' % (self.id, self.name)
-        if self.dates != '':
-            out += ' %s' % self.dates
-        return out
-
-
 def search_bare(identifier: str):
     response = session.get('https://authority.bibsys.no/authority/rest/sru', params={
         'operation': 'searchRetrieve',

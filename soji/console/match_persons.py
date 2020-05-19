@@ -1,10 +1,8 @@
 from __future__ import annotations
-
+import argparse
 from dataclasses import asdict
 from typing import Union
-import sys
-import time
-from datetime import datetime
+import logging
 from dotenv import load_dotenv
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font
@@ -15,7 +13,8 @@ from ..common.alma import get_alma_candidates
 from ..common.interfaces import BarePerson, ViafPerson, Strategy, Match, NoMatch
 from ..matcher.matchers import isbn_matcher, title_matcher
 from ..common.viaf import get_viaf_candidates
-from ..common.promus import Promus, BibbiPersons, BibbiPerson
+from ..common.promus import Promus, BibbiPersons, BibbiPerson, QueryFilter
+from ..common.logging import logger
 
 
 def match_person(bibbi_person: BibbiPerson) -> Union[Match, NoMatch]:
@@ -46,8 +45,6 @@ def match_person(bibbi_person: BibbiPerson) -> Union[Match, NoMatch]:
         ),
     ]
 
-    sys.stdout.write('%s %s' % (bibbi_person.name, bibbi_person.dates))
-
     viaf_match = None
 
     session = Session()
@@ -58,8 +55,7 @@ def match_person(bibbi_person: BibbiPerson) -> Union[Match, NoMatch]:
 
     for strategy in strategies:
         for bibbi_item in bibbi_person.items:
-
-            sys.stdout.write('\n  [strategy:%s] %s "%s"' % (strategy.name, bibbi_item.isbn, '" || "'.join(bibbi_item.titles)))
+            logger.info(' -> {%s} Check item: %s %s', strategy.name, bibbi_item.isbn, ' || '.join(bibbi_item.titles))
 
             query = strategy.query.format(**{
                 'creator': bibbi_person.name.strip(),
@@ -72,7 +68,6 @@ def match_person(bibbi_person: BibbiPerson) -> Union[Match, NoMatch]:
             for candidate in candidates:
                 if match := strategy.matcher(bibbi_person, bibbi_item, candidate, strategy):
                     if isinstance(match.target, BarePerson):
-                        sys.stdout.write(' -> MATCH!\n')
                         return match
                     elif isinstance(match.target, ViafPerson) and viaf_match is None:
                         # If we find a VIAF-only match, we keep it, but we will continue to check if we can
@@ -80,10 +75,8 @@ def match_person(bibbi_person: BibbiPerson) -> Union[Match, NoMatch]:
                         viaf_match = match
 
     if viaf_match is not None:
-        sys.stdout.write(' -> viaf only match\n')
         return viaf_match
 
-    sys.stdout.write(' -> no match\n')
     return NoMatch()
 
 
@@ -126,20 +119,23 @@ def match_persons(persons: BibbiPersons):
         for n2, v2 in enumerate(v1):
             cell = ws.cell(n1 + 1, n2 + 1, v2)
             cell.font = header_font
-            cell.fill = PatternFill("solid", fgColor="FFFFEE")
+            cell.fill = PatternFill('solid', fgColor='FFFFEE')
 
     row = 3
     person_no = 0
-    t0 = time.time()
     person_t = len(persons)
     for bibbi_id, bibbi_person in persons.items():
         person_no += 1
-
-        dt = time.time() - t0
-        time_s = datetime.now().strftime('%H:%M')
-        print('[%s] %d/%d in %d secs' % (time_s, person_no, person_t, dt))
+        logger.info('[%d/%d] %s %s %s' % (person_no, person_t, bibbi_id, bibbi_person.name, bibbi_person.dates))
 
         match = match_person(bibbi_person)
+        if isinstance(match, NoMatch):
+            logger.info(' => No match')
+        elif isinstance(match, ViafPerson):
+            logger.info(' => VIAF only match')
+        else:
+            logger.info(' => {%s} %s', match.strategy, match.title_similarity)
+            # '\n  [strategy:%s] %s "%s"' % (strategy.name, bibbi_item.isbn, '" || "'.join(bibbi_item.titles)))
 
         ws.cell(row=row, column=1, value=bibbi_id)
         ws.cell(row=row, column=2, value=bibbi_person.name)
@@ -158,21 +154,37 @@ def match_persons(persons: BibbiPersons):
             ws.cell(row=row, column=12, value=match.date_similarity)
 
         if isinstance(match.target, ViafPerson):
-            ws.cell(row=row, column=13, value='=HYPERLINK("%s")' % ('https://viaf.org/viaf/' + match.target.id))
+            ws.cell(row=row, column=13, value='=HYPERLINK("https://viaf.org/viaf/%s")' % match.target.id)
             ws.cell(row=row, column=14, value=match.title_similarity)
 
         row += 1
 
-        wb.save('results/bibbi-persons-match-alma.xlsx')
+        outfile = 'bibbi-persons-match-alma.xlsx'
+        wb.save('results/%s' % outfile)
+        logger.debug('Wrote %s', outfile)
 
 
 def main():
     load_dotenv()
 
+    parser = argparse.ArgumentParser(description='Match Bibbi persons to BARE using Alma + VIAF')
+    parser.add_argument('--debug', action='store_true')
+    args = parser.parse_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
+    logger.info('Starting')
+
     promus = Promus()
 
     # Hent alle personer fra Bibbi
-    bibbi_persons = promus.persons.list()
+    bibbi_persons = promus.persons.list([
+        QueryFilter('person.NB_ID IS NULL')
+    ])
+    logger.info('%d persons read from Promus', len(bibbi_persons))
 
     # Velg ut de som har minst en utgivelse i 2019 eller 2020, men spar på alle utgivelsene til disse personene,
     # så vi kan bruke dem til matching.
@@ -181,8 +193,6 @@ def main():
         newest_year = int(bibbi_person.newest_approved.strftime('%Y'))
         if 2019 <= newest_year <= 2020:
             bibbi_persons_filtered[bibbi_id] = bibbi_person
-
-    print('Fetched %d persons from Promus' % len(bibbi_persons))
-    print('of which %d persons having items published within requested date range' % len(bibbi_persons_filtered))
+    logger.info('%d persons have items published within requested date range', len(bibbi_persons_filtered))
 
     match_persons(bibbi_persons_filtered)

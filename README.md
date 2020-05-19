@@ -10,4 +10,9 @@ For hver person, gjør det så et søk i _Alma_ (network zone for Bibsys-konsort
 Bruk:
 
     cp .env.dist .env  # og legg inn påloggingsinformasjon
-    python run.py
+    poetry install
+    poetry run match_persons
+
+Testing:
+
+    poetry run pytest

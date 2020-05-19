@@ -1,49 +1,38 @@
 from __future__ import annotations
-from typing import Generator, TypedDict, Optional
-from lxml import etree
+from typing import Generator, Union
+from lxml import etree  # type: ignore
 from requests import Session
+import logging
 from .interfaces import Candidate, BarePerson, ViafPerson
+from .xml import XmlNode
+
+logger = logging.getLogger(__name__)
 
 
-class XmlNode:
+def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, BarePerson]:
+    person = None
 
-    def __init__(self, node: etree._Element, namespace: str):
-        self.node = node
-        self.ns = namespace
-        self.nsmap = {'main': self.ns}
+    # Main heading
+    for heading in cluster.all(':mainHeadings/:mainHeadingEl'):
+        heading_source, heading_id = heading.text(':id').split('|')
 
-    def make(self, node: etree._Element):
-        return XmlNode(node, self.ns)
+        if heading_source == 'BIBSYS':
+            person = BarePerson(
+                id=heading_id,
+                name=heading.text(':datafield/:subfield[@code="a"]', xpath=True),
+                dates=heading.text(':datafield/:subfield[@code="d"]', xpath=True)
+            )
 
-    def path(self, path: str, xpath: bool = False):
-        if xpath:
-            return path.replace(':', 'main:')
-        return path.replace(':',  '{%s}' % self.ns)
+    # x400s
+    if person is not None:
+        for heading in cluster.all(':x400s/:x400'):
+            if 'BIBSYS' in heading.all_text(':sources/:s'):
+                for subfield in heading.all(':datafield/:subfield'):
+                    if subfield.get('code') == 'a':
+                        person.alt_names.append(subfield.text())
+        return person
 
-    def all(self, path: str, xpath: bool = False) -> Generator[XmlNode, None, None]:
-        if xpath:
-            for node in self.node.xpath(self.path(path, xpath=True), namespaces=self.nsmap):
-                yield self.make(node)
-        for node in self.node.findall(self.path(path)):
-            yield self.make(node)
-
-    def first(self, path: str, xpath: bool = False) -> Optional[XmlNode]:
-        if xpath:
-            return next(self.all(path, xpath))
-
-    def text(self, path: str = None, xpath: bool = False) -> Optional[str]:
-        if path is None:
-            return self.node.text
-        node = self.first(self.path(path, xpath=xpath))
-        if node is not None:
-            return node.text()
-
-    def all_text(self, path: str) -> Generator[str, None, None]:
-        for node in self.node.findall(self.path(path)):
-            yield node.text
-
-    def __getattr__(self, name):
-        return getattr(self.node, name)
+    return ViafPerson(id=cluster.text(':viafID'))
 
 
 def get_viaf_candidates(query: str, session: Session = None) -> Generator[Candidate, None, None]:
@@ -62,34 +51,16 @@ def get_viaf_candidates(query: str, session: Session = None) -> Generator[Candid
     )
 
     data = XmlNode(etree.fromstring(response.text.encode('utf-8')), 'http://viaf.org/viaf/terms#')
+    clusters = list(data.all('.//:VIAFCluster'))
 
-    for cluster in data.all('.//:VIAFCluster'):
+    logger.debug('VIAF search returned %d clusters', len(clusters))
+
+    for cluster in clusters:
         if cluster.text(':nameType') != 'Personal':
+            logger.debug('Ignoring VIAF cluster of type %s', cluster.text(':nameType'))
             continue
 
-        person = None
-
-        # Main heading
-        for heading in cluster.all(':mainHeadings/:mainHeadingEl'):
-            heading_source, heading_id = heading.text(':id').split('|')
-
-            if heading_source == 'BIBSYS':
-                person = BarePerson(
-                    id=heading_id,
-                    name=heading.text(':datafield/:subfield[@code="a"]', xpath=True),
-                    dates=heading.text(':datafield/:subfield[@code="d"]', xpath=True)
-                )
-
-        # x400s
-        if person is not None:
-            for heading in cluster.all(':x400s/:x400'):
-                if 'BIBSYS' in heading.all_text(':sources/:s'):
-                    for subfield in heading.all(':datafield/:subfield'):
-                        if subfield.get('code') == 'a':
-                            person.alt_names.append(subfield.text())
-
-        else:
-            person = ViafPerson(id=cluster.text(':viafID'))
+        person = get_person_from_viaf_cluster(cluster)
 
         # ISBNs
         isbns = list(cluster.all_text(':ISBNs/:data/:text'))

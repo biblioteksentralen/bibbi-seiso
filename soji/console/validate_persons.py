@@ -79,7 +79,11 @@ class Promus:
             """
             SELECT PersonId, Bibsent_ID, NB_ID, PersonName
             FROM AuthorityPerson AS person
-            WHERE ReferenceNr IS NULL AND Approved = '1' AND Felles_ID = Bibsent_ID AND Bibsent_ID IS NOT NULL AND NB_ID IS NOT NULL
+            WHERE ReferenceNr IS NULL
+            AND Approved = '1'
+            AND Felles_ID = Bibsent_ID
+            AND Bibsent_ID IS NOT NULL
+            AND NB_ID IS NOT NULL
             """
         ):
             yield {
@@ -91,12 +95,13 @@ class Promus:
 
     def fetch_all_bibsent_ids(self):
         tables = {}
-        for table in ['Person','Conf', 'Corp', 'FreeGenre', 'Genre', 'Geographic', 'Music',  'Title', 'Topic', 'TopicMusic']:
-            for row in self.select("SELECT PrimaryKeyField FROM AuthorityTable WHERE TableName = ?", ['Authority' + table]):
+        for table in ['Person', 'Conf', 'Corp', 'FreeGenre', 'Genre', 'Geographic', 'Music',  'Title', 'Topic',
+                      'TopicMusic']:
+            for row in self.select("SELECT PrimaryKeyField FROM AuthorityTable WHERE TableName = ?",
+                                   ['Authority' + table]):
                 tables[table] = row[0]
 
         print(tables)
-
 
         ids = dict()
         for table, pkey in tables.items():
@@ -111,21 +116,26 @@ class Promus:
 class BareRecord:
 
     def __init__(self, record_el):
-        self.id = record_el.xpath('marc:controlfield[@tag="001"]/text()', namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'})[0]
+        self.id = record_el.xpath('marc:controlfield[@tag="001"]/text()',
+                                  namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'})[0]
 
         self.name = ''
-        for node in record_el.xpath('marc:datafield[@tag="100"]/marc:subfield[@code="a"]', namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}):
+        for node in record_el.xpath('marc:datafield[@tag="100"]/marc:subfield[@code="a"]',
+                                    namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}):
             self.name = node.text
-
 
         # TODO: Sjekke 400-felt!!
 
         self.dates = ''
-        for node in record_el.xpath('marc:datafield[@tag="100"]/marc:subfield[@code="d"]', namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}):
+        for node in record_el.xpath('marc:datafield[@tag="100"]/marc:subfield[@code="d"]',
+                                    namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}):
             self.dates = node.text
 
         self.bibbi_ids = []
-        for node in record_el.xpath('marc:datafield[@tag="024"][./marc:subfield[@code="2"]/text() = "bibbi"]/marc:subfield[@code="a"]', namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}):
+        for node in record_el.xpath(
+            'marc:datafield[@tag="024"][./marc:subfield[@code="2"]/text() = "bibbi"]/marc:subfield[@code="a"]',
+            namespaces={'marc': 'info:lc/xmlns/marcxchange-v1'}
+        ):
             self.bibbi_ids.append(node.text)
 
     def as_dict(self):
@@ -134,11 +144,11 @@ class BareRecord:
             'name': self.name,
             'dates': self.dates,
         }
-    
+
     def __str__(self):
-        out = '%s %s' % (self.id, self.name)        
+        out = '%s %s' % (self.id, self.name)
         if self.dates != '':
-            out +=  ' %s' % self.dates
+            out += ' %s' % self.dates
         return out
 
 
@@ -228,6 +238,6 @@ with open('feil.txt', 'w', buffering=1) as fp:
 
                 else:
                     err = 'Verken BIBSENT_ID, PersonId eller NB_ID ble funnet i BARE'
-            
+
         if err is not None:
             fp.write(intro + err + '\n')

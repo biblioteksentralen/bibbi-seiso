@@ -1,8 +1,9 @@
 import os
-import pyodbc
+import pyodbc  # type: ignore
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
-from datetime import datetime
+
+from soji.common.interfaces import BibbiPerson, BibbiVare
 
 
 class MsSql:
@@ -31,26 +32,17 @@ class MsSql:
         return self.conn.cursor()
 
 
-@dataclass
-class BibbiVare:
-    isbn: str
-    approve_date: datetime
-    titles: List[str] = field(default_factory=list)
-
-
-@dataclass
-class BibbiPerson:
-    name: str
-    nasj: str
-    dates: str
-    newest_approved: Optional[datetime] = None
-    items: List[BibbiVare] = field(default_factory=list)
-
-
 BibbiPersons = Dict[str, BibbiPerson]
 
 
-class Promus():
+@dataclass
+class QueryFilter:
+    name: str
+    operator: str
+    value: str
+
+
+class Promus:
 
     def __init__(self):
         self.db = MsSql(
@@ -60,7 +52,27 @@ class Promus():
             password=os.getenv('DB_PASSWORD')
         )
 
-    def fetch_persons(self) -> BibbiPersons:
+        self.persons = Persons(self)
+
+    def cursor(self):
+        return self.db.cursor()
+
+
+class Persons:
+
+    def __init__(self, conn: Promus):
+        self.conn = conn
+
+    def get(self, bibbi_id) -> Optional[BibbiPerson]:
+        results = self.list([QueryFilter(name='person.Bibsent_ID', operator='=', value=bibbi_id)])
+        if bibbi_id in results:
+            return results[bibbi_id]
+        return None
+
+    def list(self, filters: List[QueryFilter] = None) -> BibbiPersons:
+
+        if filters is None:
+            filters = []
 
         query = """
         SELECT
@@ -72,30 +84,32 @@ class Promus():
             item.Title,
             iv2.Text as OriginalTitle,
             item.ApproveDate
-    
+
         FROM AuthorityPerson AS person
-    
+
         JOIN ItemField AS field ON field.Authority_ID = person.PersonId AND field.FieldCode IN ('100', '600', '700')
         JOIN Item AS item ON field.Item_ID = item.Item_ID
         JOIN ItemFieldSubFieldView as iv1 ON iv1.Item_ID = Item.Item_ID AND iv1.FieldCode = '020' AND iv1.SubFieldCode = 'a'
         LEFT JOIN ItemFieldSubFieldView as iv2 ON iv2.Item_ID = Item.Item_ID AND iv2.FieldCode = '240' AND iv2.SubFieldCode = 'a'
-    
-        WHERE 
-            person.ReferenceNr IS NULL 
-            AND person.Felles_ID = person.Bibsent_ID 
+
+        WHERE
+            person.ReferenceNr IS NULL
+            AND person.Felles_ID = person.Bibsent_ID
             AND person.NB_ID IS NULL
             AND item.ApproveDate IS NOT NULL
-    
-        -- Testing:
-        -- AND person.PersonName = 'Elam, Ingrid'
-        -- AND person.Bibsent_ID > 1179438
-    
+
+        %(filters)s
+
         ORDER BY person.Bibsent_ID
-        """
+        """ % {
+            'filters': ' '.join(['AND %s %s ?' % (filt.name, filt.operator) for filt in filters])
+        }
+
+        filter_params = [filt.value for filt in filters]
 
         persons: dict = {}
-        with self.db.cursor() as cursor:
-            cursor.execute(query)
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, filter_params)
             for row in cursor:
                 bibbi_id = row[0]
                 if bibbi_id not in persons:

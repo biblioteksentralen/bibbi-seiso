@@ -1,26 +1,31 @@
 import sys
+import logging
 from typing import Generator
 from requests import Session
 from json import JSONDecodeError
 from .interfaces import Candidate, BarePerson
 
+logger = logging.getLogger(__name__)
 
-def get_alma_candidates(query: str, session: Session = None) -> Generator[Candidate, None, None]:
 
+def alma_search(query: str, session: Session = None) -> dict:
     session = session or Session()
     response = session.get('https://ub-lsm.uio.no/alma/search', params={
         'query': query,
         'nz': 'true',
     })
     try:
-        response = response.json()
+        return response.json()
     except JSONDecodeError:
-        print(query)
-        print("GOT INVALID RESPONSE")
-        # print(response.text)
+        logger.error('Received INVALID JSON response from Alma')
+        logger.error('Our query: %s', query)
+        logger.error('Response: %s', response.text)
         sys.exit(1)
 
-    for result in response['results']:
+
+def get_alma_candidates(query: str, session: Session = None) -> Generator[Candidate, None, None]:
+    data = alma_search(query, session)
+    for result in data['results']:
         for creator in result.get('creators', []):
             if 'id' in creator:
                 bare_id = creator['id'].replace('(NO-TrBIB)', '')

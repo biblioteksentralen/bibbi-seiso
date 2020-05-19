@@ -28,9 +28,11 @@ mypy = "^0.770"
 pylint = "^2.5.2"
 black = "^19.10b0"
 pytest = "^5.4.2"
+pycodestyle = "^2.6.0"
 
 [tool.poetry.scripts]
 match_persons = "soji.console.match_persons:main"
+update_persons = "soji.console.update_persons:main"
 validate_persons = "soji.console.validate_persons:main"
 
 [build-system]

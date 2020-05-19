@@ -12,8 +12,8 @@ from requests import Session
 from cachecontrol import CacheControlAdapter
 from cachecontrol.heuristics import ExpiresAfter
 from ..common.alma import get_alma_candidates
-from ..common.interfaces import BarePerson, ViafPerson, Strategy
-from ..matcher.matchers import Match, isbn_matcher, title_matcher, NoMatch
+from ..common.interfaces import BarePerson, ViafPerson, Strategy, Match, NoMatch
+from ..matcher.matchers import isbn_matcher, title_matcher
 from ..common.viaf import get_viaf_candidates
 from ..common.promus import Promus, BibbiPersons, BibbiPerson
 
@@ -22,27 +22,27 @@ def match_person(bibbi_person: BibbiPerson) -> Union[Match, NoMatch]:
     strategies = [
         Strategy(
             name='isbn',
-            query='alma.isbn="{isbn}"',
             provider=get_alma_candidates,
+            query='alma.isbn="{isbn}"',
             matcher=isbn_matcher,
         ),
         Strategy(
             name='creator+title',
             provider=get_alma_candidates,
-            matcher=title_matcher,
             query='alma.creator="{creator}" AND alma.title="{title}"',
+            matcher=title_matcher,
         ),
         Strategy(
             name='creator+fuzzy title',
             provider=get_alma_candidates,
-            matcher=title_matcher,
             query='alma.creator="{creator}"',
+            matcher=title_matcher,
         ),
         Strategy(
             name='viaf:creator+title',
             provider=get_viaf_candidates,
-            matcher=title_matcher,
             query='local.personalNames="{creator}"',
+            matcher=title_matcher,
         ),
     ]
 
@@ -172,7 +172,7 @@ def main():
     promus = Promus()
 
     # Hent alle personer fra Bibbi
-    bibbi_persons = promus.fetch_persons()
+    bibbi_persons = promus.persons.list()
 
     # Velg ut de som har minst en utgivelse i 2019 eller 2020, men spar på alle utgivelsene til disse personene,
     # så vi kan bruke dem til matching.

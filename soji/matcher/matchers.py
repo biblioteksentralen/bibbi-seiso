@@ -1,9 +1,8 @@
 import re
-from typing import Optional, Union
-from dataclasses import dataclass
-import unidecode
-from fuzzywuzzy import fuzz
-from ..common.interfaces import BarePerson, ViafPerson, Candidate, Strategy
+from typing import Optional
+import unidecode  # type: ignore
+from fuzzywuzzy import fuzz  # type: ignore
+from ..common.interfaces import Candidate, Strategy, Match
 from ..common.promus import BibbiPerson, BibbiVare
 
 
@@ -34,25 +33,10 @@ def compare_dates(date1: str, date2: str) -> bool:
     return date1[:4] == date2[:4]
 
 
-@dataclass
-class NoMatch:
-    strategy: str = ''
-    target: None = None
-    name_similarity: str = ''
-    date_similarity: str = ''
-    title_similarity: str = ''
-
-
-@dataclass
-class Match:
-    strategy: str
-    target: Union[BarePerson, ViafPerson]
-    name_similarity: str = ''
-    date_similarity: str = ''
-    title_similarity: str = ''
-
-
-def match_names_and_dates(bibbi_person: BibbiPerson, candidate: Candidate, strategy: Strategy) -> Optional[Match]:
+def match_names_and_dates(bibbi_person: BibbiPerson,
+                          candidate: Candidate,
+                          strategy: Strategy
+                          ) -> Optional[Match]:
     name_similarity = fuzzy_match(candidate.person.name, bibbi_person.name)
     if name_similarity == 100 or (strategy.name == 'isbn' and name_similarity > 75):
         match = Match(
@@ -80,9 +64,14 @@ def match_names_and_dates(bibbi_person: BibbiPerson, candidate: Candidate, strat
             match.date_similarity = 'Mangler i BARE'
 
         return match
+    return None
 
 
-def title_matcher(bibbi_person: BibbiPerson, bibbi_item: BibbiVare, candidate: Candidate, strategy: Strategy) -> Optional[Match]:
+def title_matcher(bibbi_person: BibbiPerson,
+                  bibbi_item: BibbiVare,
+                  candidate: Candidate,
+                  strategy: Strategy
+                  ) -> Optional[Match]:
     match = match_names_and_dates(bibbi_person, candidate, strategy)
     if match:
         for bibbi_title in bibbi_item.titles:
@@ -98,16 +87,22 @@ def title_matcher(bibbi_person: BibbiPerson, bibbi_item: BibbiVare, candidate: C
                 # match.sim = 'T-%d' % title_similarity
                 match.title_similarity = 'FUZZY: "%s" <--> "%s"' % (bibbi_title, candidate.title)
                 return match
+    return None
 
 
-def isbn_matcher(bibbi_person: BibbiPerson, bibbi_item: BibbiVare, candidate: Candidate, strategy: Strategy) -> Optional[Match]:
+def isbn_matcher(bibbi_person: BibbiPerson,
+                 bibbi_item: BibbiVare,
+                 candidate: Candidate,
+                 strategy: Strategy) -> Optional[Match]:
     match = match_names_and_dates(bibbi_person, candidate, strategy)
-    if bibbi_item.isbn in candidate.isbns:
+    if match is not None and bibbi_item.isbn in candidate.isbns:
         match.title_similarity = 'ISBN: %s' % bibbi_item.isbn
         return match
+    return None
 
 
-# def viaf_matcher_without_bare(bibbi_person: BibbiPerson, bibbi_item: BibbiVare, candidate: Candidate, strategy) -> Optional[Match]:
+# def viaf_matcher_without_bare(bibbi_person: BibbiPerson,
+# bibbi_item: BibbiVare, candidate: Candidate, strategy) -> Optional[Match]:
 #     if not isinstance(candidate.person, ViafPerson):
 #         return
 #
@@ -131,4 +126,3 @@ def isbn_matcher(bibbi_person: BibbiPerson, bibbi_item: BibbiVare, candidate: Ca
 #                 target=candidate.person,
 #                 title_similarity='FUZZY: "%s" <--> "%s"' % (bibbi_title, candidate.title)
 #             )
-

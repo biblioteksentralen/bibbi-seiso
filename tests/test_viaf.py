@@ -4,9 +4,31 @@ from soji.common.viaf import get_viaf_candidates
 
 
 @pytest.mark.webtest
-def test_get_viaf_candidates():
+@pytest.mark.parametrize('test_input, expected', [
+    # Entry with birth date
+    (
+        'local.personalNames="Wedding, Frank Miguel"',
+        BarePerson(
+            name='Ewo, Jon',
+            id='90096006',
+            dates='1957-',
+            alt_names=['Halvorsen, Jon Tore', 'Wedding, Frank Miguel']
+        )
+    ),
+    # Entry without birth date
+    (
+        'local.personalNames="Olsson, Anna-Karin Maria"',
+        BarePerson(
+            name='Olsson, Anna-Karin Maria',
+            id='8033921',
+            dates=None,
+            alt_names=[]
+        )
+    )
+])
+def test_get_viaf_candidates(test_input, expected):
     candidates = list(
-        get_viaf_candidates('local.personalNames="{creator}"'.format(creator="Ewo, Jon "))
+        get_viaf_candidates(test_input)
     )
 
     bare_persons = [
@@ -15,20 +37,4 @@ def test_get_viaf_candidates():
         if isinstance(cand.person, BarePerson)
     ]
 
-    bare_names = set([
-        person.name for person in bare_persons
-    ])
-
-    bare_matches = [
-        person for person in bare_persons
-        if person.name == 'Ewo, Jon'
-    ]
-
-    assert len(candidates) >= 83
-    assert bare_names == {'Ewo, Jon', 'Selmas, Holger'}
-    assert bare_matches[0] == BarePerson(
-        name='Ewo, Jon',
-        id='90096006',
-        dates='1957-',
-        alt_names=['Halvorsen, Jon Tore', 'Wedding, Frank Miguel']
-    )
+    assert bare_persons[0] == expected

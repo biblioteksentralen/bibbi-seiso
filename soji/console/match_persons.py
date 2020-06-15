@@ -126,7 +126,7 @@ def match_persons(persons: BibbiPersons):
     person_t = len(persons)
     for bibbi_id, bibbi_person in persons.items():
         person_no += 1
-        logger.info('[%d/%d] %s %s %s' % (person_no, person_t, bibbi_id, bibbi_person.name, bibbi_person.dates))
+        logger.info('[%d/%d] %s %s' % (person_no, person_t, bibbi_id, bibbi_person))
 
         match = match_person(bibbi_person)
         if isinstance(match, NoMatch):
@@ -139,7 +139,7 @@ def match_persons(persons: BibbiPersons):
 
         ws.cell(row=row, column=1, value=bibbi_id)
         ws.cell(row=row, column=2, value=bibbi_person.name)
-        ws.cell(row=row, column=3, value=bibbi_person.dates)
+        ws.cell(row=row, column=3, value=bibbi_person.dates or '')
         ws.cell(row=row, column=4, value=len(bibbi_person.items))
         ws.cell(row=row, column=5, value=bibbi_person.newest_approved)
 
@@ -148,7 +148,7 @@ def match_persons(persons: BibbiPersons):
         if isinstance(match.target, BarePerson):
             ws.cell(row=row, column=7, value=match.target.id)
             ws.cell(row=row, column=8, value=match.target.name)
-            ws.cell(row=row, column=9, value=match.target.dates)
+            ws.cell(row=row, column=9, value=match.target.dates or '')
             ws.cell(row=row, column=10, value=match.title_similarity)
             ws.cell(row=row, column=11, value=match.name_similarity)
             ws.cell(row=row, column=12, value=match.date_similarity)

@@ -20,7 +20,7 @@ def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, BarePers
             person = BarePerson(
                 id=heading_id,
                 name=heading.text(':datafield/:subfield[@code="a"]', xpath=True),
-                dates=heading.text(':datafield/:subfield[@code="d"]', xpath=True, default='')
+                dates=heading.text_or_none(':datafield/:subfield[@code="d"]', xpath=True)
             )
 
     # x400s
@@ -32,7 +32,7 @@ def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, BarePers
                         person.alt_names.append(subfield.text())
         return person
 
-    return ViafPerson(id=cluster.text(':viafID'), name='', dates='')
+    return ViafPerson(id=cluster.text(':viafID'), name='', dates=None)
 
 
 def get_viaf_candidates(query: str, session: Session = None) -> Generator[Candidate, None, None]:
@@ -47,10 +47,11 @@ def get_viaf_candidates(query: str, session: Session = None) -> Generator[Candid
     response = session.get(
         'https://www.viaf.org/viaf/search',
         params={'query': query},
-        headers={'Accept': 'application/xml'}
+        headers={'Accept': 'application/xml'},
+        stream=True
     )
 
-    data = XmlNode(etree.fromstring(response.text.encode('utf-8')), 'http://viaf.org/viaf/terms#')
+    data = XmlNode(etree.fromstring(response.content), 'http://viaf.org/viaf/terms#')
     clusters = list(data.all('.//:VIAFCluster'))
 
     logger.debug('VIAF search returned %d clusters', len(clusters))

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Generator, Optional, List
+from typing import Generator, Optional, List, TypeVar, Union
 from lxml import etree  # type: ignore
 import re
 
@@ -52,6 +52,12 @@ class XmlNode:
                 return default
             raise NodeNotFound()
         return node.text()
+
+    def text_or_none(self, *args, **kwargs) -> Optional[str]:
+        try:
+            return self.text(*args, **kwargs)
+        except NodeNotFound:
+            return None
 
     def all_text(self, path: str, xpath: bool = False) -> List[str]:
         return [node.text() for node in self.all(path, xpath)]

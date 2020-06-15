@@ -17,11 +17,11 @@ class BibbiVare:
 class Person:
     id: str
     name: str
-    dates: str
+    dates: Optional[str]
 
     def __str__(self):
         out = '%s %s' % (self.id, self.name)
-        if self.dates != '':
+        if self.dates is not None:
             out += ' %s' % self.dates
         return out
 

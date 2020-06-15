@@ -29,8 +29,10 @@ def fuzzy_match(value1: str, value2: str) -> int:
     ])
 
 
-def compare_dates(date1: str, date2: str) -> bool:
-    return date1[:4] == date2[:4]
+def compare_dates(date1: Optional[str], date2: Optional[str]) -> bool:
+    year1 = date1[:4] if date1 is not None else date1
+    year2 = date2[:4] if date2 is not None else date2
+    return year1 == year2
 
 
 def match_names_and_dates(bibbi_person: BibbiPerson,
@@ -52,13 +54,13 @@ def match_names_and_dates(bibbi_person: BibbiPerson,
             match.name_similarity = 'Fuzzy: %d' % name_similarity
 
         if compare_dates(candidate.person.dates, bibbi_person.dates):
-            if bibbi_person.dates == '':
+            if bibbi_person.dates is None:
                 match.date_similarity = 'Mangler'
             else:
                 match.date_similarity = 'Lik verdi'
-        elif bibbi_person.dates != '' and candidate.person.dates != '':
+        elif bibbi_person.dates is not None and candidate.person.dates is not None:
             match.date_similarity = 'ULIKE verdier'
-        elif bibbi_person.dates == '':
+        elif bibbi_person.dates is None:
             match.date_similarity = 'Mangler i BIBBI'
         else:
             match.date_similarity = 'Mangler i BARE'

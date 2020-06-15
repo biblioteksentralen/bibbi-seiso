@@ -33,7 +33,7 @@ def get_alma_candidates(query: str, session: Session = None) -> Generator[Candid
                     person=BarePerson(
                         id=bare_id,
                         name=creator['name'],
-                        dates=creator.get('dates', '')
+                        dates=creator.get('dates')
                     ),
                     title=result.get('title'),
                     isbns=[isbn.replace('-', '') for isbn in result.get('isbns')],

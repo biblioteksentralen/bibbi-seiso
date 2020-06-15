@@ -118,7 +118,7 @@ class Persons:
                         id=bibbi_id,
                         bare_id=row[8],
                         name=row[1],
-                        dates=row[2] or '',
+                        dates=row[2].strip() if row[2] is not None and row[2].strip() != '' else None,
                         nasj=row[3],
                     )
                 vare = BibbiVare(

@@ -11,6 +11,8 @@ test_data = [
             name='Hveberg, Klara',
             id='99064681',
             dates='1974-',
+            country_codes=['no'],
+            nationality='n.',
             alt_names=[],
             bibbi_ids=['407922']
         )
@@ -23,7 +25,8 @@ test_data = [
             id='1560455410566',
             dates=None,
             alt_names=[],
-            bibbi_ids=[]
+            bibbi_ids=[],
+            nationality=None,
         )
     ),
     # Entry with alt names
@@ -33,6 +36,8 @@ test_data = [
             name='Ewo, Jon',
             id='90096006',
             dates='1957-',
+            country_codes=['no'],
+            nationality='n.',
             alt_names=['Wedding, Frank Miguel', 'Halvorsen, Jon Tore'],
             bibbi_ids=['10802']
         )
@@ -40,7 +45,7 @@ test_data = [
 ]
 
 
-@pytest.mark.webtest
+@pytest.mark.integration
 @pytest.mark.parametrize('query, expected_record', test_data)
 def test_bare_search(query, expected_record):
     bare = Bare()
@@ -50,14 +55,14 @@ def test_bare_search(query, expected_record):
     assert records[0] == expected_record
 
 
-@pytest.mark.webtest
+@pytest.mark.integration
 @pytest.mark.parametrize('query, expected_record', test_data)
 def test_bare_get(query, expected_record):
     bare = Bare()
     assert bare.get(expected_record.id).simple_record() == expected_record
 
 
-@pytest.mark.webtest
+@pytest.mark.integration
 def test_bare_get_not_found():
     bare = Bare()
     with pytest.raises(BareRecordNotFound) as exc:

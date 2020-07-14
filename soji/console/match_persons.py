@@ -165,6 +165,10 @@ def match_persons(persons: BibbiPersons):
 
 
 def main():
+    """
+    Script for matching Bibbi persons to BARE using a combination of Alma and VIAF APIs.
+    The results are written to an Excel file.
+    """
     load_dotenv()
 
     parser = argparse.ArgumentParser(description='Match Bibbi persons to BARE using Alma + VIAF')

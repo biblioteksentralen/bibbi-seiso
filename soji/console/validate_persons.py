@@ -1,4 +1,3 @@
-import pyodbc
 import os
 from dotenv import load_dotenv
 from tqdm import tqdm

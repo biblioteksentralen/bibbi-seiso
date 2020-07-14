@@ -274,6 +274,17 @@ version = "0.13.1"
 dev = ["pre-commit", "tox"]
 
 [[package]]
+category = "main"
+description = "Library for building powerful interactive command lines in Python"
+name = "prompt-toolkit"
+optional = false
+python-versions = ">=3.6.1"
+version = "3.0.5"
+
+[package.dependencies]
+wcwidth = "*"
+
+[[package]]
 category = "dev"
 description = "library with cross-python path, ini-parsing, io, code, log facilities"
 name = "py"
@@ -299,6 +310,14 @@ version = "4.8.0"
 
 [package.extras]
 dev = ["coverage", "flake8", "mock", "pylint", "pytest", "pytest-cov", "sphinx", "sphinx-rtd-theme", "tox", "twine", "wheel"]
+
+[[package]]
+category = "dev"
+description = "passive checker of Python programs"
+name = "pyflakes"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+version = "2.2.0"
 
 [[package]]
 category = "dev"
@@ -376,6 +395,20 @@ version = "0.12.0"
 setuptools = "*"
 
 [[package]]
+category = "main"
+description = "Python library to build pretty command line user prompts ⭐️"
+name = "questionary"
+optional = false
+python-versions = "*"
+version = "1.5.2"
+
+[package.dependencies]
+prompt-toolkit = ">=2.0,<4.0"
+
+[package.extras]
+test = ["pytest", "pytest-pycodestyle", "pytest-cov", "coveralls"]
+
+[[package]]
 category = "dev"
 description = "Alternative regular expression module, to replace re."
 name = "regex"
@@ -408,6 +441,14 @@ name = "six"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 version = "1.15.0"
+
+[[package]]
+category = "main"
+description = "Convert between various DB API 2.0 parameter styles."
+name = "sqlparams"
+optional = false
+python-versions = ">=3.5"
+version = "3.0.0"
 
 [[package]]
 category = "dev"
@@ -466,7 +507,7 @@ secure = ["certifi", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "pyOpenSSL (>=0
 socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7,<2.0)"]
 
 [[package]]
-category = "dev"
+category = "main"
 description = "Measures the displayed width of unicode strings in a terminal"
 name = "wcwidth"
 optional = false
@@ -482,7 +523,7 @@ python-versions = "*"
 version = "1.12.1"
 
 [metadata]
-content-hash = "f3b7076cdf361a03065318e79140215fd3934ef040c02b80102c534e4697a248"
+content-hash = "2015343ff7e0641ee2dd4cb8977e1ea1a1d09ade7fddbbbf230da8cc145447e9"
 python-versions = "^3.8"
 
 [metadata.files]
@@ -660,6 +701,10 @@ pluggy = [
     {file = "pluggy-0.13.1-py2.py3-none-any.whl", hash = "sha256:966c145cd83c96502c3c3868f50408687b38434af77734af1e9ca461a4081d2d"},
     {file = "pluggy-0.13.1.tar.gz", hash = "sha256:15b2acde666561e1298d71b523007ed7364de07029219b604cf808bfa1c765b0"},
 ]
+prompt-toolkit = [
+    {file = "prompt_toolkit-3.0.5-py3-none-any.whl", hash = "sha256:df7e9e63aea609b1da3a65641ceaf5bc7d05e0a04de5bd45d05dbeffbabf9e04"},
+    {file = "prompt_toolkit-3.0.5.tar.gz", hash = "sha256:563d1a4140b63ff9dd587bda9557cffb2fe73650205ab6f4383092fb882e7dc8"},
+]
 py = [
     {file = "py-1.8.1-py2.py3-none-any.whl", hash = "sha256:c20fdd83a5dbc0af9efd622bee9a5564e278f6380fffcacc43ba6f43db2813b0"},
     {file = "py-1.8.1.tar.gz", hash = "sha256:5e27081401262157467ad6e7f851b7aa402c5852dbcb3dae06768434de5752aa"},
@@ -671,6 +716,10 @@ pycodestyle = [
 pydash = [
     {file = "pydash-4.8.0-py2.py3-none-any.whl", hash = "sha256:611ad40e3b11fb57396cca4a55ea04641200a1dd632c3c7e2c14849bee386625"},
     {file = "pydash-4.8.0.tar.gz", hash = "sha256:546afa043ed1defa3122383bebe8b7072f43554ccc5f0c4360638f99e5ed7327"},
+]
+pyflakes = [
+    {file = "pyflakes-2.2.0-py2.py3-none-any.whl", hash = "sha256:0d94e0e05a19e57a99444b6ddcf9a6eb2e5c68d3ca1e98e90707af8152c90a92"},
+    {file = "pyflakes-2.2.0.tar.gz", hash = "sha256:35b2d75ee967ea93b55750aa9edbbf72813e06a66ba54438df2cfac9e3c27fc8"},
 ]
 pylint = [
     {file = "pylint-2.5.3-py3-none-any.whl", hash = "sha256:d0ece7d223fe422088b0e8f13fa0a1e8eb745ebffcb8ed53d3e95394b6101a1c"},
@@ -706,6 +755,10 @@ python-dotenv = [
 python-levenshtein = [
     {file = "python-Levenshtein-0.12.0.tar.gz", hash = "sha256:033a11de5e3d19ea25c9302d11224e1a1898fe5abd23c61c7c360c25195e3eb1"},
 ]
+questionary = [
+    {file = "questionary-1.5.2-py3-none-any.whl", hash = "sha256:6998a1fe0639daec0da44e0a973f387e7c778bdc418d76ecfa45a7b3a0997049"},
+    {file = "questionary-1.5.2.tar.gz", hash = "sha256:f6e41e36b6c86fe0c3ff12a30c6c6a4e80129efba5ad0a115d71fd5df119c726"},
+]
 regex = [
     {file = "regex-2020.6.8-cp27-cp27m-win32.whl", hash = "sha256:fbff901c54c22425a5b809b914a3bfaf4b9570eee0e5ce8186ac71eb2025191c"},
     {file = "regex-2020.6.8-cp27-cp27m-win_amd64.whl", hash = "sha256:112e34adf95e45158c597feea65d06a8124898bdeac975c9087fe71b572bd938"},
@@ -736,6 +789,10 @@ requests = [
 six = [
     {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},
     {file = "six-1.15.0.tar.gz", hash = "sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259"},
+]
+sqlparams = [
+    {file = "sqlparams-3.0.0-py3-none-any.whl", hash = "sha256:3ced99c6be7dd9d9af64c87a28e89d8e180e90194156bb2f31113791ffe693e7"},
+    {file = "sqlparams-3.0.0.tar.gz", hash = "sha256:2ad27aab848e9b678c70d3fd2aa0c2aa486a22c4d2e492e28051455704218d6b"},
 ]
 toml = [
     {file = "toml-0.10.1-py2.py3-none-any.whl", hash = "sha256:bda89d5935c2eac546d648028b9901107a595863cb36bae0c73ac804a9b4ce88"},

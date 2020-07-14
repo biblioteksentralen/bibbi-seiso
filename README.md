@@ -13,6 +13,7 @@ Bruk:
     poetry install
     poetry run match_persons
 
-Testing:
+Automatiske tester:
 
     poetry run pytest
+

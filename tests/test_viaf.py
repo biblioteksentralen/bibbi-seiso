@@ -3,7 +3,7 @@ from soji.common.interfaces import BarePerson
 from soji.common.viaf import get_viaf_candidates
 
 
-@pytest.mark.webtest
+@pytest.mark.integration
 @pytest.mark.parametrize('test_input, expected', [
     # Entry with birth date
     (

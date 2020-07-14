@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Generator
+from typing import Generator, Optional
 
 from lxml import etree  # type: ignore
 from requests import Session
@@ -22,8 +22,10 @@ class BareRecordNotFound(Exception):
 
 class Bare:
 
-    def __init__(self, session: Session = None):
+    def __init__(self, apikey: Optional[str] = None, session: Optional[Session] = None):
         self.session = session or Session()
+        if apikey is not None:
+            self.session.headers.update({'Authorization': 'apikey %s' % apikey})
 
     def sru_search(self, query: str) -> Generator[BareRecord, None, None]:
         response = self.session.get('https://authority.bibsys.no/authority/rest/sru', params={
@@ -48,6 +50,11 @@ class Bare:
                         ':datafield[@tag="024"][./:subfield[@code="2"]/text() = "bibbi"]/:subfield[@code="a"]',
                         xpath=True
                     ),
+                    country_codes=rec.all_text(':datafield[@tag="043"]/:subfield[@code="c"]'),
+                    nationality=rec.text_or_none(
+                        ':datafield[@tag="386"][./:subfield[@code="2"] = "bs-nasj"]/:subfield[@code="a"]',
+                        xpath=True
+                    ),
                     alt_names=rec.all_text(
                         ':datafield[@tag="400"]/:subfield[@code="a"]',
                         xpath=True
@@ -70,10 +77,9 @@ class Bare:
         # The API doesn't specify encoding, so we have to do it manually
         return BibsysJsonRecord(response.content.decode('utf-8'))
 
-    def update_record(self, record: BibsysJsonRecord):
-
+    def put(self, record: BibsysJsonRecord):
         response = self.session.put(
             'https://authority.bibsys.no/authority/rest/authorities/v2/{id}'.format(id=record.id),
-            json=record.serialize()
+            json=record.as_dict()
         )
-        print(response.status_code)
+        response.raise_for_status()

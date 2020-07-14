@@ -17,7 +17,9 @@ class BibbiVare:
 class Person:
     id: str
     name: str
-    dates: Optional[str]
+    dates: Optional[str] = None
+    country_codes: List[str] = field(default_factory=list)
+    nationality: Optional[str] = None
 
     def __str__(self):
         out = '%s %s' % (self.id, self.name)
@@ -29,8 +31,7 @@ class Person:
 @dataclass
 class BibbiPerson(Person):
     # Bibbi person
-    nasj: str
-    bare_id: Optional[str]
+    bare_id: Optional[str] = None
     newest_approved: Optional[datetime] = None
     items: List[BibbiVare] = field(default_factory=list)
 

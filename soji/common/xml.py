@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Generator, Optional, List, TypeVar, Union
+from typing import Optional, List
 from lxml import etree  # type: ignore
 import re
 

@@ -1,16 +1,22 @@
+import logging
 import os
+import sys
+from collections import OrderedDict
+
 import pyodbc  # type: ignore
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
-
+from sqlparams import SQLParams
 from soji.common.interfaces import BibbiPerson, BibbiVare
+
+logger = logging.getLogger(__name__)
 
 
 class MsSql:
 
     def __init__(self, **db_settings):
         if os.name == 'posix':
-            conn_string = ';'.join([
+            connection_string = ';'.join([
                 'DRIVER={FreeTDS}',
                 'Server=%(server)s',
                 'Database=%(database)s',
@@ -20,16 +26,19 @@ class MsSql:
                 'Port=1433',
             ]) % db_settings
         else:
-            conn_string = ';'.join([
+            connection_string = ';'.join([
                 'Driver={SQL Server}',
                 'Server=%(server)s',
                 'Database=%(database)s',
                 'Trusted_Connection=yes',
             ]) % db_settings
-        self.conn: pyodbc.Connection = pyodbc.connect(conn_string)
+        self.connection: pyodbc.Connection = pyodbc.connect(connection_string)
 
     def cursor(self) -> pyodbc.Cursor:
-        return self.conn.cursor()
+        return self.connection.cursor()
+
+    def commit(self) -> None:
+        self.connection.commit()
 
 
 BibbiPersons = Dict[str, BibbiPerson]
@@ -43,24 +52,41 @@ class QueryFilter:
 
 class Promus:
 
-    def __init__(self):
-        self.db = MsSql(
-            server=os.getenv('DB_SERVER'),
-            database=os.getenv('DB_DB'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD')
-        )
+    def __init__(self, server=None, database=None, user=None, password=None):
+        self.connection_options = {
+            'server': server or os.getenv('DB_SERVER'),
+            'database': database or os.getenv('DB_DB'),
+            'user': user or os.getenv('DB_USER'),
+            'password': password or os.getenv('DB_PASSWORD'),
+        }
+        self.persons: Persons = Persons(self)
 
-        self.persons = Persons(self)
+    def connection(self) -> MsSql:
+        # Seems like only one cursor can be opened per connection.
+        # Therefore, we sometimes need to open more than one connection.
+        return MsSql(**self.connection_options)
 
-    def cursor(self):
-        return self.db.cursor()
 
+class Countries:
+
+    def __init__(self, promus: Promus):
+        self.conn = promus.connection()
+        self._short_name_map = {}
+
+    @property
+    def short_name_map(self):
+        if len(self._short_name_map) == 0:
+            with self.conn.cursor() as cursor:
+                cursor.execute('SELECT CountryShortName, ISO_3166_Alpha_2 FROM EnumCountries', [])
+                for row in cursor.fetchall():
+                    self._short_name_map[row[0]] = row[1]
+        return self._short_name_map
 
 class Persons:
 
-    def __init__(self, conn: Promus):
-        self.conn = conn
+    def __init__(self, promus: Promus):
+        self.conn = promus.connection()
+        self.countries = Countries(promus)
 
     def get(self, bibbi_id: str) -> Optional[BibbiPerson]:
         results = self.list([
@@ -116,10 +142,11 @@ class Persons:
                 if bibbi_id not in persons:
                     persons[bibbi_id] = BibbiPerson(
                         id=bibbi_id,
-                        bare_id=row[8],
+                        bare_id=str(row[8]),
                         name=row[1],
                         dates=row[2].strip() if row[2] is not None and row[2].strip() != '' else None,
-                        nasj=row[3],
+                        nationality=row[3],
+                        country_codes=self.country_codes_from_nationality(row[3])
                     )
                 vare = BibbiVare(
                     isbn=row[4].replace('-', ''),
@@ -136,3 +163,31 @@ class Persons:
             bibbi_person.newest_approved = sorted(approve_dates)[-1]
 
         return persons
+
+    def update(self, bibbi_person: BibbiPerson, **kwargs):
+        with self.conn.cursor() as cursor:
+            query = 'UPDATE AuthorityPerson SET %s WHERE Bibsent_ID=?' % ', '.join(
+                ['%s=?' % key for key in kwargs.keys()]
+            )
+            params = list(kwargs.values()) + [int(bibbi_person.id)]
+
+            print(query)
+            print(params)
+
+            sys.exit(1)
+
+            cursor.execute(query, params)
+
+            if cursor.rowcount == 0:
+                raise Exception('No rows affected by the query')
+
+            self.conn.commit()
+
+    def country_codes_from_nationality(self, value):
+        if value is None:
+            return []
+        values = value.split('-')
+        print(values)
+        values = [self.countries.short_name_map[x] for x in values]
+        print(values)
+        return values

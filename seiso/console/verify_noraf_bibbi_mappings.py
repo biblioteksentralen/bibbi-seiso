@@ -69,7 +69,7 @@ class Processor:
     def run(self):
         bibbi_noraf_mapping = {
             row['Bibsent_ID']: row['NB_ID']
-            for row in self.promus.connection().query(
+            for row in self.promus.connection().select(
                 'SELECT Bibsent_ID, NB_ID FROM AuthorityPerson WHERE Bibsent_ID is not NULL',
                 normalize=True
             )

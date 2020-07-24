@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 
 import pyodbc  # type: ignore
 from dataclasses import dataclass
@@ -16,7 +17,7 @@ ColumnDataTypes = List[Union[str, int, None]]
 
 class MsSql:
 
-    def __init__(self, **db_settings):
+    def __init__(self, update_log: Path, **db_settings):
         if os.name == 'posix':
             connection_string = ';'.join([
                 'DRIVER={FreeTDS}',
@@ -35,6 +36,7 @@ class MsSql:
                 'Trusted_Connection=yes',
             ]) % db_settings
         self.connection: pyodbc.Connection = pyodbc.connect(connection_string)
+        self.update_log = update_log
 
     def cursor(self) -> pyodbc.Cursor:
         return self.connection.cursor()
@@ -42,10 +44,12 @@ class MsSql:
     def commit(self) -> None:
         self.connection.commit()
 
-    def query(self, query_str: str, params: list = None, normalize: bool = False,
+    def select(self, query: str, params: list = None, normalize: bool = False,
               date_fields: list = None) -> Generator[dict, None, None]:
+        if 'SELECT' not in query:
+            raise Exception('Not a SELECT query')
         with self.cursor() as cursor:
-            cursor.execute(query_str, params or [])
+            cursor.execute(query, params or [])
             columns = [column[0] for column in cursor.description]
             for row in cursor.fetchall():
                 row = dict(zip(columns, row))
@@ -74,6 +78,21 @@ class MsSql:
                 if row[k] == '':
                     row[k] = None
 
+    @staticmethod
+    def format_log_entry(query: str, params: ColumnDataTypes) -> str:
+        return '[%s] %s [%s]' % (datetime.now().isoformat(), query, ','.join([
+            str(param) for param in params
+        ]))
+
+    def update(self, query: str, params: List[str]):
+        with self.update_log.open('a+') as fp:
+            fp.write(self.format_log_entry(query, params) + '\n')
+        with self.cursor() as cursor:
+            cursor.execute(query, params)
+            rowcount = cursor.rowcount
+            self.commit()
+        return rowcount
+
 BibbiPersons = Dict[str, BibbiPerson]
 
 
@@ -85,13 +104,16 @@ class QueryFilter:
 
 class Promus:
 
-    def __init__(self, server=None, database=None, user=None, password=None):
+    def __init__(self, server=None, database=None, user=None, password=None, update_log='logs/promus_updates.log'):
         self.connection_options = {
             'server': server or os.getenv('PROMUS_HOST'),
             'database': database or os.getenv('PROMUS_DATABASE'),
             'user': user or os.getenv('PROMUS_USER'),
             'password': password or os.getenv('PROMUS_PASSWORD'),
+            'update_log': Path(update_log),
         }
+        self.connection_options['update_log'].parent.mkdir(exist_ok=True, parents=True)
+        self.connection_options['update_log'].touch()
         self.persons: Persons = Persons(self)
 
     def connection(self) -> MsSql:
@@ -109,31 +131,18 @@ class Countries:
     @property
     def short_name_map(self):
         if len(self._short_name_map) == 0:
-            with self.conn.cursor() as cursor:
-                cursor.execute('SELECT CountryShortName, ISO_3166_Alpha_2 FROM EnumCountries', [])
-                for row in cursor.fetchall():
-                    if row[1] is not None and row[1].strip() != '':
-                        self._short_name_map[row[0]] = row[1].lower()
+            for row in self.conn.select('SELECT CountryShortName, ISO_3166_Alpha_2 FROM EnumCountries', normalize=True):
+                if row['ISO_3166_Alpha_2'] is not None:
+                    self._short_name_map[row['CountryShortName']] = row['ISO_3166_Alpha_2'].lower()
         return self._short_name_map
 
 class Authorities:
 
     table_name = None
-    query_log_file = 'promus_updates.log'
 
     def __init__(self, promus: Promus):
         self.promus = promus
         self.conn = promus.connection()
-
-    def log_query(self, query: str, params: ColumnDataTypes, dry_run: bool) -> None:
-        line = '[%s] %s [%s]' % (datetime.now().isoformat(), query, ','.join([
-            str(param) for param in params
-        ]))
-        if dry_run:
-            logger.info(line)
-        else:
-            with open(self.query_log_file, 'a+') as fp:
-                fp.write(line + '\n')
 
     def build_update_query(self, entity: BibbiRecord, **kwargs) -> Tuple[str, ColumnDataTypes]:
         kwargs['LastChanged'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:23]  # milliseconds with 3 digits
@@ -146,13 +155,11 @@ class Authorities:
 
     def update(self, entity: BibbiRecord, dry_run: bool, **kwargs):
         query, params = self.build_update_query(entity, **kwargs)
-        self.log_query(query, params, dry_run)
-        if not dry_run:
-            with self.conn.cursor() as cursor:
-                cursor.execute(query, params)
-                if cursor.rowcount == 0:
-                    raise Exception('No rows affected by the query')
-                self.conn.commit()
+        if dry_run:
+            logger.info('[Dry run] %s', self.conn.format_log_entry(query, params))
+        else:
+            if self.conn.update(query, params) == 0:
+                raise Exception('No rows affected by the UPDATE query: %s' % query)
 
 
 class Persons(Authorities):
@@ -228,7 +235,7 @@ class Persons(Authorities):
 
         persons: dict = {}
         n = 0
-        for row in self.conn.query(query, filter_params, normalize=True, date_fields=[
+        for row in self.conn.select(query, filter_params, normalize=True, date_fields=[
                     'Created',
                     'LastChanged',
                     'ApproveDate',
@@ -277,7 +284,7 @@ class Persons(Authorities):
             WHERE
                 len(person.ReferenceNr) > 0
         """
-        for row in self.conn.query(query, normalize=True):
+        for row in self.conn.select(query, normalize=True):
             ref_id = row['ReferenceNr']
             if ref_id in id_map:
                 persons[id_map[ref_id]].alt_names.append(row['PersonName'])

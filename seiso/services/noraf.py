@@ -37,13 +37,17 @@ class Noraf:
     oai_pmh_endpoint = 'https://authority.bibsys.no/authority/rest/oai'
     sru_endpoint = 'https://authority.bibsys.no/authority/rest/sru'
 
-    update_log_file = 'noraf_updates.log'
-
-    def __init__(self, apikey: Optional[str] = None, session: Optional[Session] = None):
+    def __init__(self,
+                 apikey: Optional[str] = None,
+                 session: Optional[Session] = None,
+                 update_log: str = 'logs/noraf_updates.log'):
         self.session = session or Session()
         self.session.headers.update({'User-Agent': 'BibbiSeiso/1.0 (Dan.Michael.Heggo@bibsent.no)'})
         if apikey is not None:
             self.session.headers.update({'Authorization': 'apikey %s' % apikey})
+        self.update_log = Path(update_log)
+        self.update_log.parent.mkdir(exist_ok=True, parents=True)
+        self.update_log.touch()
 
     def get(self, identifier: str) -> NorafJsonRecord:
         response = self.session.get(
@@ -93,9 +97,8 @@ class Noraf:
             record.id,
             reason
         )
-        with open(self.update_log_file, 'a+') as fp:
+        with self.update_log.open('a+') as fp:
             fp.write(line + '\n')
-
 
     def search(self, query: str) -> Generator[NorafRecord, None, None]:
         start_row = 1

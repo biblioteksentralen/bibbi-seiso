@@ -1,6 +1,6 @@
 from lxml import etree
 import pytest
-from soji.common.xml import XmlNode, NodeNotFound
+from seiso.common.xml import XmlNode, NodeNotFound
 
 test_data = """<?xml version='1.0' encoding='utf-8'?>
 <ns2:VIAFCluster xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:ns2="http://example.com/">
@@ -44,4 +44,4 @@ def test_raise_on_text_node_not_found(test_node: XmlNode):
 
 
 def test_serialize(test_node):
-    assert test_node.serialize() == test_data.decode('utf-8')
+    assert test_node.serialize() == test_data

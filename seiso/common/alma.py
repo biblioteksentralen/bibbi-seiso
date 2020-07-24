@@ -3,7 +3,7 @@ import logging
 from typing import Generator
 from requests import Session
 from json import JSONDecodeError
-from .interfaces import Candidate, BarePerson
+from .interfaces import Candidate, NorafPerson
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,10 @@ def get_alma_candidates(query: str, session: Session = None) -> Generator[Candid
     for result in data['results']:
         for creator in result.get('creators', []):
             if 'id' in creator:
-                bare_id = creator['id'].replace('(NO-TrBIB)', '')
+                noraf_id = creator['id'].replace('(NO-TrBIB)', '')
                 yield Candidate(
-                    person=BarePerson(
-                        id=bare_id,
+                    person=NorafPerson(
+                        id=noraf_id,
                         name=creator['name'],
                         dates=creator.get('dates')
                     ),

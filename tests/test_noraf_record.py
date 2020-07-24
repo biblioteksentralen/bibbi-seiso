@@ -1,11 +1,12 @@
 import json
 from copy import deepcopy
+from datetime import date
 
 import pytest
 
-from soji.common.bare import BibsysJsonRecord
-from soji.common.bare_record import BibsysJsonMarcField, FieldNotFound, SubfieldNotFound
-from soji.common.interfaces import BarePersonRecord
+from seiso.common.noraf_record import NorafJsonMarcField, FieldNotFound, SubfieldNotFound
+from seiso.common.interfaces import NorafPersonRecord
+from seiso.services.noraf import NorafJsonRecord
 
 example1 = {
     "authorityType": "PERSON",
@@ -137,7 +138,7 @@ example2 = {
 
 
 def test_parse_example1():
-    rec = BibsysJsonRecord(json.dumps(example1))
+    rec = NorafJsonRecord(json.dumps(example1))
     assert rec.id == '1560455410566'
     assert rec.origin == 'hha253######47BIBSYS_UBTO'
     assert rec.status == 'kat2'
@@ -147,9 +148,14 @@ def test_parse_example1():
     assert rec.has('100') is True
     assert rec.first('100').value('a') == 'Karlsson, Terése'
     assert rec.identifiers('handle') == ['http://hdl.handle.net/11250/2607868']
-    assert rec.simple_record() == BarePersonRecord(
-        '1560455410566',
-        'Karlsson, Terése'
+    assert rec.simple_record() == NorafPersonRecord(
+        id='1560455410566',
+        created=date(2019, 8, 12),
+        modified=date(2019, 8, 12),
+        name='Karlsson, Terése',
+        other_ids={
+            'handle': ['http://hdl.handle.net/11250/2607868'],
+        }
     )
 
     with pytest.raises(SubfieldNotFound):
@@ -161,26 +167,31 @@ def test_parse_example1():
 
 
 def test_parse_example2():
-    rec = BibsysJsonRecord(json.dumps(example2))
+    rec = NorafJsonRecord(json.dumps(example2))
     assert rec.id == '14011193'
     assert rec.origin == 'sruu'
     assert rec.status == 'kat3'
     assert rec.record_type == 'PERSON'
     assert rec.nationality == 'eng.'
     assert rec.identifiers('bibbi') == ['315434']
-    assert rec.simple_record() == BarePersonRecord(
-        '14011193',
-        'Galbraith, Robert',
-        '1965-',
-        [],
-        'eng.',
-        [],
-        ['315434']
+    assert rec.simple_record() == NorafPersonRecord(
+        id='14011193',
+        created=date(2014, 3, 13),
+        modified=date(2020, 2, 19),
+        name='Galbraith, Robert',
+        dates='1965-',
+        nationality='eng.',
+        other_ids={
+            'bibbi': ['315434'],
+            'handle': ['http://hdl.handle.net/11250/2066683'],
+            'isni': ['0000000395090901'],
+            'viaf': ['http://viaf.org/viaf/289698481'],
+        }
     )
 
 
 def test_update_field():
-    rec = BibsysJsonRecord(json.dumps(example1))
+    rec = NorafJsonRecord(json.dumps(example1))
     rec.first('100').set('d', '1985-')
     assert rec.first('100').value('d') == '1985-'
 
@@ -193,8 +204,8 @@ def test_update_field():
 
 
 def test_add_field():
-    rec = BibsysJsonRecord(json.dumps(example1))
-    new_field = BibsysJsonMarcField.construct('043')
+    rec = NorafJsonRecord(json.dumps(example1))
+    new_field = NorafJsonMarcField.construct('043')
     new_field.set('c', 'no')
     rec.add(new_field)
 

@@ -10,11 +10,13 @@ from requests import Session
 from cachecontrol import CacheControlAdapter
 from cachecontrol.heuristics import ExpiresAfter
 from ..common.alma import get_alma_candidates
-from ..common.interfaces import BarePerson, ViafPerson, Strategy, Match, NoMatch
+from ..common.interfaces import NorafPerson, ViafPerson, Strategy, Match, NoMatch
 from ..matcher.matchers import isbn_matcher, title_matcher
 from ..common.viaf import get_viaf_candidates
 from ..common.promus import Promus, BibbiPersons, BibbiPerson, QueryFilter
-from ..common.logging import logger
+from ..common.logging import setup_logging
+
+logger = setup_logging()
 
 
 def match_person(bibbi_person: BibbiPerson) -> Union[Match, NoMatch]:
@@ -67,11 +69,11 @@ def match_person(bibbi_person: BibbiPerson) -> Union[Match, NoMatch]:
 
             for candidate in candidates:
                 if match := strategy.matcher(bibbi_person, bibbi_item, candidate, strategy):
-                    if isinstance(match.target, BarePerson):
+                    if isinstance(match.target, NorafPerson):
                         return match
                     elif isinstance(match.target, ViafPerson) and viaf_match is None:
                         # If we find a VIAF-only match, we keep it, but we will continue to check if we can
-                        # find one with a BARE link.
+                        # find one with a Noraf link.
                         viaf_match = match
 
     if viaf_match is not None:
@@ -102,9 +104,9 @@ def match_persons(persons: BibbiPersons):
     headers = [
         [
             'Bibbi-autoritet', '', '', '', '',
-            'BARE-autoritetskandidat', '', '',
-            'BARE-match basert på', '', '', '',
-            'VIAF-autoritetskandidat', ''
+            'Noraf-autoritetskandidat', '', '',
+            'Noraf-match basert på', '', '', '',
+            'Viaf-autoritetskandidat', ''
         ],
         [
             'ID', 'Navn', 'Datoer', 'Antall poster', 'Nyeste post godkjent',
@@ -145,7 +147,7 @@ def match_persons(persons: BibbiPersons):
 
         ws.cell(row=row, column=6, value=match.strategy)
 
-        if isinstance(match.target, BarePerson):
+        if isinstance(match.target, NorafPerson):
             ws.cell(row=row, column=7, value=match.target.id)
             ws.cell(row=row, column=8, value=match.target.name)
             ws.cell(row=row, column=9, value=match.target.dates or '')
@@ -166,12 +168,12 @@ def match_persons(persons: BibbiPersons):
 
 def main():
     """
-    Script for matching Bibbi persons to BARE using a combination of Alma and VIAF APIs.
+    Script for matching Bibbi persons to Noraf using a combination of Alma and VIAF APIs.
     The results are written to an Excel file.
     """
     load_dotenv()
 
-    parser = argparse.ArgumentParser(description='Match Bibbi persons to BARE using Alma + VIAF')
+    parser = argparse.ArgumentParser(description='Match Bibbi persons to Noraf using Alma + VIAF')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
@@ -194,6 +196,8 @@ def main():
     # så vi kan bruke dem til matching.
     bibbi_persons_filtered = {}
     for bibbi_id, bibbi_person in bibbi_persons.items():
+        if bibbi_person.newest_approved is None:
+            continue
         newest_year = int(bibbi_person.newest_approved.strftime('%Y'))
         if 2019 <= newest_year <= 2020:
             bibbi_persons_filtered[bibbi_id] = bibbi_person

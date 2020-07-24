@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, List
+from typing import Optional, List, Dict
 from lxml import etree  # type: ignore
 import re
 
@@ -10,10 +10,12 @@ class NodeNotFound(Exception):
 
 class XmlNode:
 
-    def __init__(self, node: etree._Element, namespace: str):
+    def __init__(self, node: etree._Element, namespace: str, namespaces: Optional[Dict[str, str]]=None):
         self.node = node
         self.ns = namespace
         self.nsmap = {'main': self.ns}
+        if namespaces is not None:
+            self.nsmap.update(**namespaces)
 
     def make(self, node: etree._Element):
         return XmlNode(node, self.ns)
@@ -62,11 +64,11 @@ class XmlNode:
     def all_text(self, path: str, xpath: bool = False) -> List[str]:
         return [node.text() for node in self.all(path, xpath)]
 
-    def serialize(self):
+    def serialize(self) -> bytes:
         return etree.tostring(self.node,
                               pretty_print=True,
                               xml_declaration=True,
-                              encoding='utf-8').decode('utf-8')
+                              encoding='utf-8')
 
     def __repr__(self):
         return '<XmlNode %s>' % self.node.tag

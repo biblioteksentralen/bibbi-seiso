@@ -61,9 +61,9 @@ def match_names_and_dates(bibbi_person: BibbiPerson,
         elif bibbi_person.dates is not None and candidate.person.dates is not None:
             match.date_similarity = 'ULIKE verdier'
         elif bibbi_person.dates is None:
-            match.date_similarity = 'Mangler i BIBBI'
+            match.date_similarity = 'Mangler i Bibbi'
         else:
-            match.date_similarity = 'Mangler i BARE'
+            match.date_similarity = 'Mangler i Noraf'
 
         return match
     return None
@@ -103,7 +103,7 @@ def isbn_matcher(bibbi_person: BibbiPerson,
     return None
 
 
-# def viaf_matcher_without_bare(bibbi_person: BibbiPerson,
+# def viaf_matcher_without_noraf(bibbi_person: BibbiPerson,
 # bibbi_item: BibbiVare, candidate: Candidate, strategy) -> Optional[Match]:
 #     if not isinstance(candidate.person, ViafPerson):
 #         return

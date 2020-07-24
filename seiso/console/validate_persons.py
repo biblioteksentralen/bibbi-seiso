@@ -6,8 +6,8 @@ from requests import Session
 from cachecontrol import CacheControlAdapter
 from cachecontrol.heuristics import ExpiresAfter
 
-from soji.common.bare import Bare
-from soji.common.promus import MsSql
+from seiso.services.noraf import Noraf
+from seiso.services.promus import MsSql
 
 session = Session()
 session.mount('https://', CacheControlAdapter(
@@ -19,8 +19,8 @@ session.mount('https://', CacheControlAdapter(
 class Promus:
 
     def __init__(self, db=None):
-        self.db = db or MsSql(server=os.getenv('DB_SERVER'), database=os.getenv('DB_DB'),
-                              user=os.getenv('DB_USER'), password=os.getenv('DB_PASSWORD'))
+        self.db = db or MsSql(server=os.getenv('PROMUS_HOST'), database=os.getenv('PROMUS_DATABASE'),
+                              user=os.getenv('PROMUS_USER'), password=os.getenv('PROMUS_PASSWORD'))
 
     def select(self, query, args=[]):
         with self.db.cursor() as cursor:
@@ -49,7 +49,7 @@ class Promus:
             yield {
                 'local_id': str(row[0]),
                 'bibbi_id': str(row[1]),
-                'bare_id': str(row[2]),
+                'noraf_id': str(row[2]),
                 'name': str(row[3]),
             }
 
@@ -71,19 +71,20 @@ class Promus:
         return ids
 
 
-def search_bare(bare: Bare, identifier: str):
-    for bare_rec in bare.sru_search('bib.identifierAuthority="%s"' % identifier):
-        if len(bare_rec.bibbi_ids) > 1:
-            with open('bare_poly.txt', 'a+', buffering=1) as fp:
-                fp.write('- BARE-posten "%s" er koblet (024) til %d Bibbi-ID-er:\n' % (str(bare_rec), len(bare_rec.bibbi_ids)))
-                for pid in bare_rec.bibbi_ids:
+def search_noraf(noraf: Noraf, identifier: str):
+    for noraf_rec in noraf.sru_search('bib.identifierAuthority="%s"' % identifier):
+        bibbi_ids = noraf_rec.other_ids.get('bibbi', [])
+        if len(bibbi_ids) > 1:
+            with open('noraf_poly.txt', 'a+', buffering=1) as fp:
+                fp.write('- Noraf-posten "%s" er koblet (024) til %d Bibbi-ID-er:\n' % (str(noraf_rec), len(bibbi_ids)))
+                for pid in noraf_rec.other_ids.get('bibbi', []):
                     if pid in bibbi_persons_by_local_id:
                         fp.write('  - PersonID %s: %s\n' % (pid, bibbi_persons_by_local_id[pid]['name']))
                     if pid in bibbi_persons_by_bibbi_id:
                         fp.write('  - BibbiID %s: %s\n' % (pid, bibbi_persons_by_bibbi_id[pid]['name']))
 
-        if identifier in bare_rec.bibbi_ids:
-            yield bare_rec
+        if identifier in noraf_rec.other_ids.get('bibbi', []):
+            yield noraf_rec
 
 
 def main():
@@ -102,38 +103,39 @@ def main():
 
     print('Fetched %d persons from Promus' % len(bibbi_persons))
 
-    bare = Bare()
+    noraf = Noraf()
 
     with open('feil.txt', 'w', buffering=1) as fp:
         for bibbi_person in tqdm(bibbi_persons):
 
-            intro = '[[ Person_ID=%(local_id)s Bibsent_ID=%(bibbi_id)s NB_ID=%(bare_id)s Navn=%(name)s ]] ' % bibbi_person
+            intro = '[[ Person_ID=%(local_id)s Bibsent_ID=%(bibbi_id)s NB_ID=%(noraf_id)s Navn=%(name)s ]] ' % bibbi_person
 
-            bare_rec = bare.get_record(bibbi_person['bare_id'])
-            if bare_rec is not None:
-                if bibbi_person['bibbi_id'] in bare_rec.bibbi_ids:
+            noraf_rec = noraf.get_record(bibbi_person['noraf_id'])
+            if noraf_rec is not None:
+                bibbi_ids = noraf_rec.other_ids.get('bibbi', [])
+                if bibbi_person['bibbi_id'] in bibbi_ids:
                     err = None  # Ok, valid record!
-                elif len(bare_rec.bibbi_ids) == 0:
-                    err = 'BARE-posten "%s" mangler Bibbi-ID i 024.' % str(bare_rec)
-                elif bibbi_person['local_id'] in bare_rec.bibbi_ids:
-                    err = 'BARE-posten "%s" har PersonID i 024.' % str(bare_rec)
+                elif len(bibbi_ids) == 0:
+                    err = 'Noraf-posten "%s" mangler Bibbi-ID i 024.' % str(noraf_rec)
+                elif bibbi_person['local_id'] in bibbi_ids:
+                    err = 'Noraf-posten "%s" har PersonID i 024.' % str(noraf_rec)
                 else:
-                    err = 'BARE-posten "%s" har følgende Bibbi-ID-er i 024: %s' % (str(bare_rec), ' OG '.join(bare_rec.bibbi_ids))
+                    err = 'Noraf-posten "%s" har følgende Bibbi-ID-er i 024: %s' % (str(noraf_rec), ' OG '.join(bibbi_ids))
 
             else:
 
-                bare_recs = list(search_bare(bare, bibbi_person['bibbi_id']))
-                if len(bare_recs) != 0:
-                    err = 'BARE-posten ble ikke funnet, men Bibbi-ID ble funnet i en annen BARE-post: %s' % str(bare_recs[0])
+                noraf_recs = list(search_noraf(noraf, bibbi_person['bibbi_id']))
+                if len(noraf_recs) != 0:
+                    err = 'Noraf-posten ble ikke funnet, men Bibbi-ID ble funnet i en annen Noraf-post: %s' % str(noraf_recs[0])
 
                 else:
 
-                    bare_recs = list(search_bare(bare, bibbi_person['local_id']))
-                    if len(bare_recs) != 0:
-                        err = 'BARE-posten ble ikke funnet, men PersonID ble funnet i en annen BARE-post: %s' % str(bare_recs[0])
+                    noraf_recs = list(search_noraf(noraf, bibbi_person['local_id']))
+                    if len(noraf_recs) != 0:
+                        err = 'Noraf-posten ble ikke funnet, men PersonID ble funnet i en annen Noraf-post: %s' % str(noraf_recs[0])
 
                     else:
-                        err = 'Verken BIBSENT_ID, PersonId eller NB_ID ble funnet i BARE'
+                        err = 'Verken BIBSENT_ID, PersonId eller NB_ID ble funnet i Noraf'
 
             if err is not None:
                 fp.write(intro + err + '\n')

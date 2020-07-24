@@ -3,13 +3,13 @@ from typing import Generator, Union
 from lxml import etree  # type: ignore
 from requests import Session
 import logging
-from .interfaces import Candidate, BarePerson, ViafPerson
+from .interfaces import Candidate, NorafPerson, ViafPerson
 from .xml import XmlNode
 
 logger = logging.getLogger(__name__)
 
 
-def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, BarePerson]:
+def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, NorafPerson]:
     person = None
 
     # Main heading
@@ -17,8 +17,10 @@ def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, BarePers
         heading_source, heading_id = heading.text(':id').split('|')
 
         if heading_source == 'BIBSYS':
-            person = BarePerson(
+            person = NorafPerson(
                 id=heading_id,
+                created=None,
+                modified=None,
                 name=heading.text(':datafield/:subfield[@code="a"]', xpath=True),
                 dates=heading.text_or_none(':datafield/:subfield[@code="d"]', xpath=True)
             )
@@ -32,13 +34,19 @@ def get_person_from_viaf_cluster(cluster: XmlNode) -> Union[ViafPerson, BarePers
                         person.alt_names.append(subfield.text())
         return person
 
-    return ViafPerson(id=cluster.text(':viafID'), name='', dates=None)
+    return ViafPerson(
+        id=cluster.text(':viafID'),
+        created=None,
+        modified=None,
+        name='',
+        dates=None
+    )
 
 
 def get_viaf_candidates(query: str, session: Session = None) -> Generator[Candidate, None, None]:
     """
     Selv om VIAF-API-et kan returnere både JSON og XML, er JSON-representasjonen litt sub-par.
-    Lister med bare ett element returneres f.eks. som et objekt i stedet, noe som gjør at man alltid
+    Lister med noraf ett element returneres f.eks. som et objekt i stedet, noe som gjør at man alltid
     må sjekke om noe er liste eller objekt. Derfor bruker vi XML.
     """
 

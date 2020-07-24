@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import date
 from typing import Optional
 
 import pytest
 from dotenv import load_dotenv
 
-from soji.common.interfaces import BarePersonRecord, BibbiPerson
-from soji.common.promus import Promus
+from seiso.common.interfaces import BibbiPerson
+from seiso.services.promus import Promus
 
 test_data = [
     # Entry with birth date
@@ -13,12 +13,15 @@ test_data = [
         '407922',
         BibbiPerson(
             id='407922',
+            created=date(2015, 6, 1),
+            modified=date(2015, 6, 1),
             name='Hveberg, Klara',
-            bare_id='99064681',
+            noraf_id='99064681',
             dates='1974-',
             nationality='n.',
-            newest_approved=datetime(2019,2,20,8,20,9, 650000),
-            country_codes=['NO'],
+            newest_approved=date(2019, 2, 20),
+            country_codes=['no'],
+            gender='f',
         )
     ),
     # Entry with multiple nationalities
@@ -26,12 +29,16 @@ test_data = [
         '75716',
         BibbiPerson(
             id='75716',
+            created=date(2005, 11, 3),
+            modified=date(2005, 11, 3),
             name='Curie, Marie Sklodowska',
-            bare_id='90528061',
+            alt_names=['Sklodowska Curie, Marie'],
+            noraf_id='90528061',
             dates='1867-1934',
             nationality='pol.-fr.',
-            newest_approved=datetime(2009, 8, 18, 9, 14, 6, 443333),
-            country_codes=['PL', 'FR'],
+            newest_approved=date(2009, 8, 18),
+            country_codes=['pl', 'fr'],
+            gender='f',
         )
     ),
     # Entry with alt names

@@ -1,6 +1,6 @@
 import pytest
 from seiso.common.interfaces import NorafPerson
-from seiso.common.viaf import get_viaf_candidates
+from seiso.services.viaf import get_viaf_candidates
 
 
 @pytest.mark.integration

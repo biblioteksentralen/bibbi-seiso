@@ -9,11 +9,11 @@ from openpyxl.styles import PatternFill, Font
 from requests import Session
 from cachecontrol import CacheControlAdapter
 from cachecontrol.heuristics import ExpiresAfter
-from ..common.alma import get_alma_candidates
+from ..services.alma import get_alma_candidates
 from ..common.interfaces import NorafPerson, ViafPerson, Strategy, Match, NoMatch
 from ..matcher.matchers import isbn_matcher, title_matcher
-from ..common.viaf import get_viaf_candidates
-from ..common.promus import Promus, BibbiPersons, BibbiPerson, QueryFilter
+from ..services.viaf import get_viaf_candidates
+from ..services.promus import Promus, BibbiPersons, BibbiPerson, QueryFilter
 from ..common.logging import setup_logging
 
 logger = setup_logging()

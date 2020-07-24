@@ -3,8 +3,8 @@ from typing import Generator, Union
 from lxml import etree  # type: ignore
 from requests import Session
 import logging
-from .interfaces import Candidate, NorafPerson, ViafPerson
-from .xml import XmlNode
+from seiso.common.interfaces import Candidate, NorafPerson, ViafPerson
+from seiso.common.xml import XmlNode
 
 logger = logging.getLogger(__name__)
 

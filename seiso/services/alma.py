@@ -3,7 +3,7 @@ import logging
 from typing import Generator
 from requests import Session
 from json import JSONDecodeError
-from .interfaces import Candidate, NorafPerson
+from seiso.common.interfaces import Candidate, NorafPerson
 
 logger = logging.getLogger(__name__)
 

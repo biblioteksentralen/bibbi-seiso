@@ -17,9 +17,9 @@ ColumnDataTypes = List[Union[str, int, None]]
 
 class MsSql:
 
-    def __init__(self, update_log: Path, **db_settings):
+    def __init__(self, update_log: Optional[Path] = None, **db_settings):
         if os.name == 'posix':
-            connection_string = ';'.join([
+            connection_args = [
                 'DRIVER={FreeTDS}',
                 'Server=%(server)s',
                 'Database=%(database)s',
@@ -27,14 +27,15 @@ class MsSql:
                 'PWD=%(password)s',
                 'TDS_Version=8.0',
                 'Port=1433',
-            ]) % db_settings
+            ]
         else:
-            connection_string = ';'.join([
+            connection_args = [
                 'Driver={SQL Server}',
                 'Server=%(server)s',
                 'Database=%(database)s',
                 'Trusted_Connection=yes',
-            ]) % db_settings
+            ]
+        connection_string = ';'.join(connection_args) % db_settings
         self.connection: pyodbc.Connection = pyodbc.connect(connection_string)
         self.update_log = update_log
 
@@ -44,8 +45,8 @@ class MsSql:
     def commit(self) -> None:
         self.connection.commit()
 
-    def select(self, query: str, params: list = None, normalize: bool = False,
-              date_fields: list = None) -> Generator[dict, None, None]:
+    def select(self, query: str, params: ColumnDataTypes = None, normalize: bool = False,
+               date_fields: list = None) -> Generator[dict, None, None]:
         if 'SELECT' not in query:
             raise Exception('Not a SELECT query')
         with self.cursor() as cursor:
@@ -56,6 +57,16 @@ class MsSql:
                 if normalize:
                     self.normalize_row(row, date_fields=date_fields)
                 yield row
+
+    def update(self, query: str, params: ColumnDataTypes) -> int:
+        if self.update_log is not None:
+            with self.update_log.open('a+') as fp:
+                fp.write(self.format_log_entry(query, params) + '\n')
+        with self.cursor() as cursor:
+            cursor.execute(query, params)
+            rowcount = cursor.rowcount
+            self.commit()
+        return rowcount
 
     @staticmethod
     def normalize_row(row: dict, date_fields: List[str] = None) -> None:
@@ -84,14 +95,6 @@ class MsSql:
             str(param) for param in params
         ]))
 
-    def update(self, query: str, params: List[str]):
-        with self.update_log.open('a+') as fp:
-            fp.write(self.format_log_entry(query, params) + '\n')
-        with self.cursor() as cursor:
-            cursor.execute(query, params)
-            rowcount = cursor.rowcount
-            self.commit()
-        return rowcount
 
 BibbiPersons = Dict[str, BibbiPerson]
 

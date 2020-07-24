@@ -279,7 +279,7 @@ class NorafXmlRecord:
 
     @staticmethod
     def _parse_ids(rec: XmlNode) -> IdentifierMap:
-        ids = {}
+        ids: IdentifierMap = {}
         for datafield in rec.all(':datafield[@tag="024"][./:subfield[@code="2"] and ./:subfield[@code="a"]]', xpath=True):
             voc = datafield.text(':subfield[@code="2"]')
             if voc == 'hdl':

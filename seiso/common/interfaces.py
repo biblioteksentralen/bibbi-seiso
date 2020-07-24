@@ -18,8 +18,8 @@ class Authority:
     """Autoritet i Bibbi eller Noraf"""
     id: str   # MERK: Vi bruker alltid Bibsent_ID som id!
     name: str
-    created: Optional[date]
-    modified: Optional[date]
+    created: Optional[date] = None
+    modified: Optional[date] = None
     alt_names: List[str] = field(default_factory=list)
 
     def __str__(self):

@@ -2,8 +2,7 @@ import re
 from typing import Optional
 import unidecode  # type: ignore
 from fuzzywuzzy import fuzz  # type: ignore
-from ..common.interfaces import Candidate, Strategy, Match
-from ..common.promus import BibbiPerson, BibbiVare
+from ..common.interfaces import Candidate, Strategy, Match, BibbiPerson, BibbiVare
 
 
 def fuzzy_match(value1: str, value2: str) -> int:

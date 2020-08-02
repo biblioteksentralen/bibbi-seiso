@@ -9,6 +9,7 @@ from typing import List, Dict, Optional, Tuple, Union, Generator
 
 from seiso.common.noraf_record import NorafJsonRecord
 from seiso.common.interfaces import BibbiPerson, BibbiVare, BibbiRecord
+from seiso.console.helpers import log_path
 
 logger = logging.getLogger(__name__)
 
@@ -107,13 +108,15 @@ class QueryFilter:
 
 class Promus:
 
-    def __init__(self, server=None, database=None, user=None, password=None, update_log='logs/promus_updates.log'):
+    def __init__(self, server=None, database=None, user=None, password=None, update_log: Optional[Path] = None):
+        if update_log is None:
+            update_log = log_path('promus_updates.log')
         self.connection_options = {
             'server': server or os.getenv('PROMUS_HOST'),
             'database': database or os.getenv('PROMUS_DATABASE'),
             'user': user or os.getenv('PROMUS_USER'),
             'password': password or os.getenv('PROMUS_PASSWORD'),
-            'update_log': Path(update_log),
+            'update_log': update_log,
         }
         self.connection_options['update_log'].parent.mkdir(exist_ok=True, parents=True)
         self.connection_options['update_log'].touch()

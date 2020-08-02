@@ -156,7 +156,7 @@ class NorafJsonRecord:
             return None
         if self.data['replacedBy'] == '0':
             return None
-        return self.data['replacedBy']
+        return str(self.data['replacedBy'])
 
     @property
     def name(self) -> str:

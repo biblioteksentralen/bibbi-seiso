@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Generator, Optional, Dict
 from pathlib import Path
@@ -9,6 +10,9 @@ from urllib.parse import urljoin
 
 from lxml import etree  # type: ignore
 from requests import Session, HTTPError
+from sickle.oaiexceptions import NoRecordsMatch
+
+from seiso.console.helpers import log_path
 from seiso.services.oai import OaiPmh
 
 from seiso.common.noraf_record import NorafJsonRecord, NorafXmlRecord
@@ -40,7 +44,9 @@ class Noraf:
     def __init__(self,
                  apikey: Optional[str] = None,
                  session: Optional[Session] = None,
-                 update_log: str = 'logs/noraf_updates.log'):
+                 update_log: Optional[Path] = None):
+        if update_log is None:
+            update_log = log_path('noraf_updates.log')
         self.session = session or Session()
         self.session.headers.update({'User-Agent': 'BibbiSeiso/1.0 (Dan.Michael.Heggo@bibsent.no)'})
         if apikey is not None:
@@ -141,5 +147,10 @@ class Noraf:
                 logger.error('%s - Record type not supported yet', rec.text(':controlfield[@tag="001"]'))
 
     def oai_harvest(self, storage_dir: Path, **kwargs):
+        logger.info('Working dir: %s', str(storage_dir.absolute()))
         oai = OaiPmh(self.oai_pmh_endpoint)
-        oai.harvest(storage_dir, **kwargs)
+
+        try:
+            oai.harvest(storage_dir, **kwargs)
+        except NoRecordsMatch:
+            logger.info('No records to harvest')

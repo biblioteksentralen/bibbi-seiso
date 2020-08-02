@@ -11,6 +11,8 @@ import questionary
 from dotenv import load_dotenv
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
+
+from seiso.console.helpers import storage_path
 from seiso.services.noraf import Noraf
 from seiso.common.noraf_record import NorafJsonMarcField
 
@@ -224,9 +226,8 @@ def main():
 
     logger.info('Records marked OK: %d, not OK: %d', len(marked_ok), len(marked_not_ok))
 
-    backup_path = Path('./', 'backup')
+    backup_path = storage_path('noraf-backup')
     logger.info('Backup path: %s', backup_path.absolute())
-    backup_path.mkdir(exist_ok=True)
 
     if args.dry:
         logger.info('Running in dry-run mode. No actual changes will be carried out.')

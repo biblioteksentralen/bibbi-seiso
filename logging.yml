@@ -24,7 +24,7 @@ handlers:
         when: midnight
         level: DEBUG
         formatter: file_format
-        filename: logs/debug.log
+        filename: ../seiso-storage/logs/debug.log
         encoding: utf8
 
     bare_log_handler:
@@ -32,7 +32,7 @@ handlers:
         when: midnight
         level: INFO
         formatter: file_format
-        filename: logs/bare.log
+        filename: ../seiso-storage/logs/bare.log
         encoding: utf8
 
     promus_log_handler:
@@ -40,7 +40,15 @@ handlers:
         when: midnight
         level: INFO
         formatter: file_format
-        filename: logs/promus.log
+        filename: ../seiso-storage/logs/promus.log
+        encoding: utf8
+
+    oai_log_handler:
+        class: logging.handlers.TimedRotatingFileHandler
+        when: W0
+        level: INFO
+        formatter: file_format
+        filename: ../seiso-storage/logs/oai.log
         encoding: utf8
 
 root:
@@ -48,12 +56,15 @@ root:
     handlers: [console_handler, debug_log_handler]
 
 loggers:
-    soji.services.bare:
+    seiso.services.bare:
         level: DEBUG
         handlers: [bare_log_handler]
-    soji.common.bare_record:
+    seiso.common.bare_record:
         level: DEBUG
         handlers: [bare_log_handler]
-    soji.services.promus:
+    seiso.services.promus:
         level: DEBUG
         handlers: [promus_log_handler]
+    seiso.services.oai:
+        level: INFO
+        handlers: [oai_log_handler]

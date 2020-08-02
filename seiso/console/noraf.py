@@ -7,8 +7,10 @@ from pathlib import Path
 
 import questionary
 from dotenv import load_dotenv
-from seiso.common.noraf_record import NorafJsonMarcField, NorafJsonRecord
+
+from seiso.common.noraf_record import NorafJsonRecord
 from seiso.common.logging import setup_logging
+from seiso.console.helpers import storage_path
 from seiso.services.noraf import Noraf
 from seiso.services.promus import Promus
 
@@ -49,7 +51,7 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
     bibbi_rec = promus.persons.get(args.bibbi_id)
 
     logger.info('[Bibbi] %s %s (%s)', bibbi_rec.name, bibbi_rec.dates or '', bibbi_rec.id)
-    logger.info('[Noraf ] %s %s (%s)', noraf_rec.name, noraf_rec.dates or '', noraf_rec.id)
+    logger.info('[Noraf] %s %s (%s)', noraf_rec.name, noraf_rec.dates or '', noraf_rec.id)
 
     if bibbi_rec.noraf_id == noraf_rec.id:
         logger.info('Bibbi record alredy linked to Noraf record')
@@ -88,6 +90,10 @@ def main():
     Scriptet oppdaterer personposter i Bibbi (via SQL) og Noraf (via REST-API) basert på inputt
     fra Excel-filen noraf_forslag_fra_isbn_tittel_match.xlsx
     """
+    load_dotenv()
+
+    default_destination_dir = storage_path('noraf-harvest', create=False)
+
     parser = argparse.ArgumentParser(description='Operations on Noraf records')
     parser.add_argument('-v', '--verbose', action='store_true', help='More verbose output.')
 
@@ -130,7 +136,7 @@ def main():
     parser_harvest.add_argument('destination_dir',
                                 nargs='?',
                                 action=WritableDir,
-                                default=Path('oai_harvest'),
+                                default=default_destination_dir,
                                 help='destination dir for the xml files')
     parser_harvest.set_defaults(func=harvest_action)
 
@@ -144,7 +150,5 @@ def main():
     else:
         logger.setLevel(logging.INFO)
 
-
-    load_dotenv()
     noraf = Noraf(os.getenv('BARE_KEY'))
     args.func(noraf, args)

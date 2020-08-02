@@ -16,7 +16,7 @@ from seiso.common.logging import setup_logging
 from tqdm import tqdm
 from lxml import etree
 from seiso.common.xml import XmlNode
-from seiso.console.helpers import Report, ReportHeader
+from seiso.console.helpers import Report, ReportHeader, storage_path
 from seiso.services.noraf import Noraf
 from seiso.services.promus import Promus, QueryFilter
 
@@ -30,7 +30,6 @@ class IsDir(argparse.Action):
         if not prospective_dir.is_dir():
             raise argparse.ArgumentTypeError('{}:{} is not a directory'.format(self.dest, prospective_dir))
         setattr(namespace, self.dest, prospective_dir)
-
 
 
 class Processor:
@@ -67,6 +66,9 @@ class Processor:
         return bibbi_files
 
     def run(self):
+
+        reports_path = storage_path('reports')
+
         bibbi_noraf_mapping = {
             row['Bibsent_ID']: row['NB_ID']
             for row in self.promus.connection().select(
@@ -94,42 +96,46 @@ class Processor:
                 else:
                     self.check_noraf_record(noraf_rec, bibbi_noraf_mapping)
 
-        self.dead_link_report.save_excel('noraf-bibbi-overgang - døde lenker.xlsx', headers=[
-            ReportHeader('Noraf-post', 'ID', 20),
-            ReportHeader('', '1XX $a', 30),
-            ReportHeader('', '4XX', 40),
-            ReportHeader('', '1XX $d', 20),
-            ReportHeader('', 'Sist endret', 20),
-            ReportHeader('Slettet Bibbi-post', 'ID', 20),
-            ReportHeader('', 'Vurdering', 90),
-            ReportHeader('', 'Forslag til erstatning', 20),
-        ])
+        self.dead_link_report.save_excel(
+            reports_path.joinpath('noraf-bibbi-overgang - døde lenker.xlsx'), headers=[
+                ReportHeader('Noraf-post', 'ID', 20),
+                ReportHeader('', '1XX $a', 30),
+                ReportHeader('', '4XX', 40),
+                ReportHeader('', '1XX $d', 20),
+                ReportHeader('', 'Sist endret', 20),
+                ReportHeader('Slettet Bibbi-post', 'ID', 20),
+                ReportHeader('', 'Vurdering', 90),
+                ReportHeader('', 'Forslag til erstatning', 20),
+            ])
 
-        self.one_to_many_report.save_excel('noraf-bibbi-overgang - en-til-flere-mappinger.xlsx', headers=[
-            ReportHeader('Noraf-post', 'ID', 16),
-            ReportHeader('', '1XX $a', 30),
-            ReportHeader('', '4XX', 50),
-            ReportHeader('', '1XX $d', 15),
-            ReportHeader('', 'Sist endret', 15),
-            ReportHeader('Lenkede Bibbi-poster', 'Post 1', 15),
-            ReportHeader('', '', 30),
-            ReportHeader('', 'Post 2', 15),
-            ReportHeader('', '', 30),
-            ReportHeader('', 'Post 3', 15),
-            ReportHeader('', '', 30),
-        ])
+        self.one_to_many_report.save_excel(
+            reports_path.joinpath('noraf-bibbi-overgang - en-til-flere-mappinger.xlsx'),
+            headers=[
+                ReportHeader('Noraf-post', 'ID', 16),
+                ReportHeader('', '1XX $a', 30),
+                ReportHeader('', '4XX', 50),
+                ReportHeader('', '1XX $d', 15),
+                ReportHeader('', 'Sist endret', 15),
+                ReportHeader('Lenkede Bibbi-poster', 'Post 1', 15),
+                ReportHeader('', '', 30),
+                ReportHeader('', 'Post 2', 15),
+                ReportHeader('', '', 30),
+                ReportHeader('', 'Post 3', 15),
+                ReportHeader('', '', 30),
+            ])
 
-        self.non_symmetric_report.save_excel('noraf-bibbi-overgang - ikke-symmetriske.xlsx', headers=[
-            ReportHeader('Noraf-post A', 'ID', 16),
-            ReportHeader('', '1XX $a', 30),
-            ReportHeader('', '4XX', 50),
-            ReportHeader('', '1XX $d', 15),
-            ReportHeader('', 'Sist endret', 15),
-            ReportHeader('-> Bibbi-post B', 'ID', 15),
-            ReportHeader('', '1XX $a', 30),
-            ReportHeader('-> Noraf-post C != A', 'ID', 20),
-            ReportHeader('', '1XX $a', 30),
-        ])
+        self.non_symmetric_report.save_excel(
+            reports_path.joinpath('noraf-bibbi-overgang - ikke-symmetriske.xlsx'), headers=[
+                ReportHeader('Noraf-post A', 'ID', 16),
+                ReportHeader('', '1XX $a', 30),
+                ReportHeader('', '4XX', 50),
+                ReportHeader('', '1XX $d', 15),
+                ReportHeader('', 'Sist endret', 15),
+                ReportHeader('-> Bibbi-post B', 'ID', 15),
+                ReportHeader('', '1XX $a', 30),
+                ReportHeader('-> Noraf-post C != A', 'ID', 20),
+                ReportHeader('', '1XX $a', 30),
+            ])
 
         # Frekvens av antall Bibbi-lenker
         print('n || Antall Noraf-poster med n Bibbi-lenker')
@@ -146,10 +152,8 @@ class Processor:
             if bibbi_id2 != bibbi_id:
                 bibbi_rec2 = self.promus.persons.get(bibbi_id2, with_items=False)
                 if bibbi_rec2 is not None:
-                    conclusion = 'Noraf-posten er også lenket til Bibbi-posten <%s>, som eksisterer. Fjerner derfor lenken til %s' % (
-                        str(bibbi_rec2),
-                        bibbi_id
-                    )
+                    conclusion = 'Noraf-posten er også lenket til Bibbi-posten <%s>, som eksisterer. ' \
+                                 'Fjerner derfor lenken til %s' % (str(bibbi_rec2), bibbi_id)
                     suggestion = 'Ikke nødvendig'
                     can_remove_link = True
 
@@ -297,28 +301,25 @@ class Processor:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Verify all Noraf-Bibbi mappings')
+    load_dotenv()
+    default_harvest_dir = storage_path('noraf-harvest', create=False)
 
+    parser = argparse.ArgumentParser(description='Verify all Noraf-Bibbi mappings')
     parser.add_argument('harvest_dir',
                         nargs='?',
                         action=IsDir,
-                        default=Path('oai_harvest'),
+                        default=default_harvest_dir,
                         help='destination dir for the xml files')
-
     parser.add_argument('--use-cache',
                         action='store_true',
                         help='use cached version of file list')
-
     parser.add_argument('-v', '--verbose', action='store_true', help='More verbose output.')
-
     args = parser.parse_args()
 
     if args.verbose:
         log.setLevel(logging.DEBUG)
     else:
         log.setLevel(logging.INFO)
-
-    load_dotenv()
 
     noraf = Noraf(os.getenv('BARE_KEY'))
     promus = Promus()

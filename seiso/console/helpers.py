@@ -1,7 +1,9 @@
 import json
 import logging
+import os
 from dataclasses import dataclass
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 from openpyxl import Workbook
 from openpyxl.cell import WriteOnlyCell
@@ -14,11 +16,25 @@ from seiso.common.logging import setup_logging
 
 log = setup_logging(level=logging.INFO)
 
+
 @dataclass
 class ReportHeader(object):
     line1: str
     line2: str
     width: int
+
+
+def storage_path(dirname: Optional[str] = None, create: bool = True) -> Path:
+    path = Path(os.getenv('STORAGE_PATH')).expanduser()
+    if dirname is not None:
+        path = path.joinpath(dirname)
+    if create:
+        path.mkdir(exist_ok=True, parents=True)
+    return path
+
+
+def log_path(filename: str) -> Path:
+    return Path(os.getenv('LOG_PATH', '')).expanduser().joinpath(filename)
 
 
 class Report:
@@ -46,16 +62,16 @@ class Report:
 
         self.data.append(columns)
 
-    def save_json(self, filename: str = 'report.json'):
-        with open(filename, 'w', encoding='utf-8') as fp:
+    def save_json(self, filename: Path):
+        with filename.open('w', encoding='utf-8') as fp:
             json.dump(self.data, fp, indent=2, ensure_ascii=False)
         log.info('Saved %d data rows to %s', len(self.data), filename)
 
-    def load_json(self, filename: str = 'report.json'):
-        with open(filename, 'r', encoding='utf-8') as fp:
+    def load_json(self, filename: Path):
+        with filename.open('r', encoding='utf-8') as fp:
             self.data = json.load(fp)
 
-    def save_excel(self, filename='report.xlsx', headers=None):
+    def save_excel(self, filename: Path, headers=None):
         log.info('Writing Excel file')
         headers = headers or []
         wb = Workbook(write_only=True)

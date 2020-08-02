@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "bibbi-seiso"
 version = "0.1.0"
-description = "Collection of Bibbi cleanup and matching scripts"
+description = "Collection of scripts for reporting adn fixing issues with Bibbi and Bibbi mappings"
 authors = ["Dan Michael O. Heggø <Dan.Michael.Heggo@bibsent.no>"]
 license = "MIT"
 packages = [

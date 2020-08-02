@@ -14,14 +14,13 @@ from dotenv import load_dotenv
 from seiso.common.noraf_record import NorafJsonRecord
 from seiso.common.interfaces import BibbiPerson
 from seiso.common.logging import setup_logging
-from seiso.console.helpers import Report, ReportHeader
+from seiso.console.helpers import Report, ReportHeader, storage_path
 from seiso.services.noraf import Noraf, TYPE_PERSON, NorafRecordNotFound, NorafUpdateFailed
 from seiso.services.promus import Promus, QueryFilter
 
 logger = setup_logging(level=logging.INFO)
 
 load_dotenv()
-
 
 
 class Processor:
@@ -48,9 +47,9 @@ class Processor:
                 pickle.dump(bibbi_records, fp)
 
             # Store a copy of all names
-            with open('bibbi_names.json', 'w', encoding='utf-8') as fp:
-                obj = [{'id': res.id, 'name': res.name} for res in bibbi_records.values()]
-                json.dump(obj, fp, indent=2)
+            # with open('bibbi_names.json', 'w', encoding='utf-8') as fp:
+            #     obj = [{'id': res.id, 'name': res.name} for res in bibbi_records.values()]
+            #     json.dump(obj, fp, indent=2)
 
         return bibbi_records
 
@@ -58,6 +57,7 @@ class Processor:
         bibbi_records = self.get_bibbi_records()
 
         logger.info('Checking %d persons linked to Noraf', len(bibbi_records))
+        reports_path = storage_path('reports')
 
         n = 0
         for bibbi_rec in bibbi_records.values():
@@ -73,12 +73,12 @@ class Processor:
 
             n += 1
             if n % 500 == 0:
-                self.overview_report.save_json('bibbi-noraf-overgang - oversikt personer.json')
+                self.overview_report.save_json(reports_path.joinpath('bibbi-noraf-overgang - oversikt personer.json'))
                 time.sleep(10)
 
-        self.overview_report.save_json('bibbi-noraf-overgang - oversikt personer.json')
+        self.overview_report.save_json(reports_path.joinpath('bibbi-noraf-overgang - oversikt personer.json'))
 
-        self.overview_report.save_excel('bibbi-noraf-overgang - oversikt personer.xlsx', headers=[
+        self.overview_report.save_excel(reports_path.joinpath('bibbi-noraf-overgang - oversikt personer.xlsx'), headers=[
             ReportHeader('Bibbi-post', 'ID', 15),
             ReportHeader('', '1XX $a', 30),
             ReportHeader('', '4XX', 40),
@@ -96,7 +96,7 @@ class Processor:
             ReportHeader('Andre Bibbi-poster', 'lenket til samme Noraf-post', 30),
         ])
 
-        self.error_report.save_excel('bibbi-noraf-overgang - feil.xlsx', headers=[
+        self.error_report.save_excel(reports_path.joinpath('bibbi-noraf-overgang - feil.xlsx'), headers=[
             ReportHeader('Bibbi-post', 'ID', 15),
             ReportHeader('', '1XX $a', 30),
             ReportHeader('', '4XX', 40),

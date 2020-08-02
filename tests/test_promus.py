@@ -57,7 +57,6 @@ def setup_module(module):
 @pytest.mark.integration
 @pytest.mark.parametrize('bibbi_id, expected_record', test_data)
 def test_promus_get_person(bibbi_id, expected_record):
-    load_dotenv()
     record = conn.persons.get(bibbi_id)
     record.items=[]
 

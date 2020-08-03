@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, date
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict, Union, Tuple, Sequence
 
 from seiso.common.xml import XmlNode
 
@@ -195,16 +195,54 @@ class NorafJsonRecord:
             return ls[0]
         return None
 
-    def identifiers(self, vocabulary: str) -> List[str]:
-        return self.data['identifiersMap'].get(vocabulary, [])
+    def identifiers(self, vocabulary: str) -> Tuple[str]:
+        """Get a tuple of identifiers for records from another vocabulary, that this record maps to.
 
-    def set_identifiers(self, vocabulary: str, values: List[str]):
+        Note that the tuple may include duplicates."""
+        return tuple(self.data['identifiersMap'].get(vocabulary, []))
+
+    def set_identifiers(self, vocabulary: str, values: Sequence[str]) -> bool:
+        """Update the list of mappings to records in another vocabulary.
+
+        Returns True and marks the record as dirty if it was changed."""
+        values = list(values)
         if len(values) == 0:
-            del self.data['identifiersMap'][vocabulary]
-        else:
+            if vocabulary in self.data['identifiersMap']:
+                logger.info('%s Remove identifiers %s = %s', self.id, vocabulary,
+                            str(self.data['identifiersMap'][vocabulary]))
+                del self.data['identifiersMap'][vocabulary]
+                self.dirty = True
+                return True
+        if self.data['identifiersMap'].get(vocabulary, []) != values:
             self.data['identifiersMap'][vocabulary] = values
-        self.dirty = True
-        logger.info('%s Set identifiers %s = %s', self.id, vocabulary, ' || '.join(values))
+            self.dirty = True
+            logger.info('%s Set identifiers %s = %s', self.id, vocabulary, str(values))
+            return True
+        return False
+
+    def remove_identifier(self, vocabulary: str, value: str) -> bool:
+        """Remove a mapping to a record in another vocabulary.
+
+        Returns True and marks the record as dirty if it was changed. If the mapping didn't exist in the first place,
+        no action is taken, and the method just returns False."""
+        value = str(value)
+        values = list(self.identifiers(vocabulary))
+        if value not in values:
+            return False
+        values.remove(value)
+        return self.set_identifiers(vocabulary, values)
+
+    def add_identifier(self, vocabulary: str, value: str) -> bool:
+        """Add a mapping to a record in another vocabulary.
+
+        Returns True and marks the record as dirty if it was changed. If the mapping didn't exist in the first place,
+        no action is taken, and the method just returns False."""
+        value = str(value)
+        values = list(self.identifiers(vocabulary))
+        if value not in values:
+            return False
+        values.append(value)
+        return self.set_identifiers(vocabulary, values)
 
     def all(self, tag: str) -> List[NorafJsonMarcField]:
         """Get all MARC fields with a given tag as a list"""

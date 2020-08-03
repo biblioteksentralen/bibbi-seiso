@@ -59,26 +59,27 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
         promus.persons.link_to_noraf(bibbi_rec, noraf_rec, False, reason='Manuell lenking')
 
     bibbi_ids = noraf_rec.identifiers('bibbi')
-    if len(bibbi_ids) > 0:
-        if bibbi_rec.id in bibbi_ids:
-            logger.info('Noraf record alredy linked to Bibbi record')
-        else:
-            logger.warning('Noraf-posten er allerede koblet til en eller flere andre Bibbi-poster: %s', ', '.join(bibbi_ids))
-            if args.replace:
-                logger.warning('Fjerner eksisterende lenker')
-                noraf_rec.set_identifiers('bibbi', [bibbi_rec.id])
-                noraf.put(noraf_rec, reason='Manuell lenking til Bibbi (erstattet eksisterende)')
-                logger.info('Replaced Bibbi identifiers on Noraf record %s', noraf_rec.id)
-
-            elif questionary.confirm('Vil du legge til en lenke til Bibbi-posten %s også?' % bibbi_rec.id).ask():
-                noraf_rec.set_identifiers('bibbi', bibbi_ids + [bibbi_rec.id])
-                noraf.put(noraf_rec, reason='Manuell lenking til Bibbi (erstattet eksisterende)')
-                logger.info('Added Bibbi identifier to Noraf record %s', noraf_rec.id)
-
-    else:
+    if len(bibbi_ids) == 0:
         noraf_rec.set_identifiers('bibbi', [bibbi_rec.id])
         noraf.put(noraf_rec, reason='Manuell lenking til Bibbi')
         logger.info('Added Bibbi identifier to Noraf record %s', noraf_rec.id)
+
+    elif bibbi_rec.id not in bibbi_ids:
+        logger.warning('Noraf-posten er allerede lenket til en eller flere andre Bibbi-poster: %s',
+                       ', '.join(bibbi_ids))
+        if args.replace:
+            logger.warning('Fjerner eksisterende lenker')
+            noraf_rec.set_identifiers('bibbi', [bibbi_rec.id])
+            noraf.put(noraf_rec, reason='Manuell lenking til Bibbi (erstattet eksisterende)')
+            logger.info('Replaced Bibbi identifiers on Noraf record %s', noraf_rec.id)
+
+        elif questionary.confirm('Vil du legge til en lenke til Bibbi-posten %s også?' % bibbi_rec.id).ask():
+            noraf_rec.add_identifier('bibbi', bibbi_rec.id)
+            noraf.put(noraf_rec, reason='Manuell lenking til Bibbi (erstattet eksisterende)')
+            logger.info('Added Bibbi identifier to Noraf record %s', noraf_rec.id)
+
+    else:
+        logger.info('Noraf-posten er allerede lenket til Bibbi-posten')
 
 
 def harvest_action(noraf: Noraf, args: argparse.Namespace) -> None:

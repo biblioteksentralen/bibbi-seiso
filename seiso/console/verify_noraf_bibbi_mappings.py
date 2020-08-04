@@ -140,7 +140,7 @@ class Processor:
                 ReportHeader('', '1XX $a', 30),
             ])
 
-        verify_noraf_bibbi_mappings        # Frekvens av antall Bibbi-lenker
+        # Frekvens av antall Bibbi-lenker
         print('n || Antall Noraf-poster med n Bibbi-lenker')
         for k, v in self.stats.items():
             print('%s: %s' % (k, v))

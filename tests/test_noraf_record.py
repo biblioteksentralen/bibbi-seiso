@@ -147,7 +147,7 @@ def test_parse_example1():
 
     assert rec.has('100') is True
     assert rec.first('100').value('a') == 'Karlsson, Terése'
-    assert rec.identifiers('handle') == ['http://hdl.handle.net/11250/2607868']
+    assert rec.identifiers('handle') == ('http://hdl.handle.net/11250/2607868',)
     assert rec.simple_record() == NorafPersonRecord(
         id='1560455410566',
         created=date(2019, 8, 12),
@@ -173,7 +173,7 @@ def test_parse_example2():
     assert rec.status == 'kat3'
     assert rec.record_type == 'PERSON'
     assert rec.nationality == 'eng.'
-    assert rec.identifiers('bibbi') == ['315434']
+    assert rec.identifiers('bibbi') == ('315434',)
     assert rec.simple_record() == NorafPersonRecord(
         id='14011193',
         created=date(2014, 3, 13),

@@ -7,7 +7,15 @@ from dotenv import load_dotenv
 from seiso.common.interfaces import BibbiPerson
 from seiso.services.promus import Promus
 
-test_data = [
+
+@pytest.fixture(scope="module")
+def promus():
+    print('setup promus')
+    load_dotenv()
+    return Promus()
+
+
+person_examples = [
     # Entry with birth date
     (
         '407922',
@@ -45,19 +53,12 @@ test_data = [
     # @TODO
 ]
 
-conn: Optional[Promus] = None
-
-
-def setup_module(module):
-    global conn
-    load_dotenv()
-    conn = Promus()
-
 
 @pytest.mark.integration
-@pytest.mark.parametrize('bibbi_id, expected_record', test_data)
-def test_promus_get_person(bibbi_id, expected_record):
-    record = conn.persons.get(bibbi_id)
-    record.items=[]
-
+@pytest.mark.parametrize('bibbi_id, expected_record', person_examples)
+def test_promus_get_person(promus, bibbi_id, expected_record):
+    """Check that we can get a person authority by ID"""
+    record = promus.persons.get(bibbi_id)
+    record.items = []   # Through 'newest_approved', we still test indirectly that at least items were not completely
+                        # omitted, even though we don't test their exact structure.
     assert record == expected_record

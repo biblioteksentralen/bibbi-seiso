@@ -38,7 +38,7 @@ def update_person(promus: Promus,
                   dry_run: bool,
                   backup_path: Optional[Path] = None):
 
-    bibbi_person = promus.persons.get(match.bibbi_id)
+    bibbi_person = promus.authorities.person.get(match.bibbi_id)
 
     if bibbi_person is None:
         logger.info('Person no longer exists in Bibbi: %s', match.bibbi_id)
@@ -71,13 +71,12 @@ def update_person(promus: Promus,
         # TODO
 
     logger.info('[Bibbi:%s] Setter Noraf-ID = "%s"', bibbi_person.id, noraf_person.id)
-    promus.persons.link_to_noraf(bibbi_person, noraf_json_rec, dry_run, reason='update_persons.py')
+    promus.authorities.person.link_to_noraf(bibbi_person, noraf_json_rec, dry_run, reason='update_persons.py')
 
     if bibbi_person.gender is None and noraf_person.gender is not None:
         logger.info('[Bibbi:%s] Setter gender = "%s"', bibbi_person.id, noraf_person.gender)
-        promus.persons.update(bibbi_person,
-                              dry_run,
-                              Gender=noraf_person.gender)
+        promus.authorities.person.update(bibbi_person, dry_run,
+                                         Gender=noraf_person.gender)
 
     # ==========================================================================
     # Update Noraf

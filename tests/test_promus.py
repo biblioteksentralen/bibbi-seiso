@@ -58,7 +58,18 @@ person_examples = [
 @pytest.mark.parametrize('bibbi_id, expected_record', person_examples)
 def test_promus_get_person(promus, bibbi_id, expected_record):
     """Check that we can get a person authority by ID"""
-    record = promus.persons.get(bibbi_id)
-    record.items = []   # Through 'newest_approved', we still test indirectly that at least items were not completely
-                        # omitted, even though we don't test their exact structure.
+    record = promus.authorities.person.get(bibbi_id)
+    record.items = []   # Skip testing the exact structure, but we still test indirectly that there are
+                        # item set through 'newest_approved'.
+    assert record == expected_record
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize('bibbi_id, expected_record', person_examples)
+def test_promus_get_authority(promus, bibbi_id, expected_record):
+    """Check that we can get an authority by ID without knowing what type it is."""
+    record = promus.authorities.get(bibbi_id)
+    record.items = []   # Skip testing the exact structure, but we still test indirectly that there are
+                        # item set through 'newest_approved'.
+
     assert record == expected_record

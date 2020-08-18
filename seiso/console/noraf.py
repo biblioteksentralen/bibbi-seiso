@@ -48,7 +48,7 @@ def get_action(noraf: Noraf, args: argparse.Namespace) -> None:
 def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
     promus = Promus()
     noraf_rec = noraf.get(args.noraf_id)
-    bibbi_rec = promus.persons.get(args.bibbi_id)
+    bibbi_rec = promus.authorities.person.get(args.bibbi_id)
 
     logger.info('[Bibbi] %s %s (%s)', bibbi_rec.name, bibbi_rec.dates or '', bibbi_rec.id)
     logger.info('[Noraf] %s %s (%s)', noraf_rec.name, noraf_rec.dates or '', noraf_rec.id)
@@ -56,7 +56,7 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
     if bibbi_rec.noraf_id == noraf_rec.id:
         logger.info('Bibbi record alredy linked to Noraf record')
     else:
-        promus.persons.link_to_noraf(bibbi_rec, noraf_rec, False, reason='Manuell lenking')
+        promus.authorities.person.link_to_noraf(bibbi_rec, noraf_rec, False, reason='Manuell lenking')
 
     bibbi_ids = noraf_rec.identifiers('bibbi')
     if len(bibbi_ids) == 0:

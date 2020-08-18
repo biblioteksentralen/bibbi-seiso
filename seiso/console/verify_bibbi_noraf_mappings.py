@@ -2,7 +2,6 @@
 Verify all links from Bibbi to Noraf
 """
 import argparse
-import json
 import logging
 import os
 import time
@@ -16,7 +15,8 @@ from seiso.common.interfaces import BibbiPerson
 from seiso.common.logging import setup_logging
 from seiso.console.helpers import Report, ReportHeader, storage_path
 from seiso.services.noraf import Noraf, TYPE_PERSON, NorafRecordNotFound, NorafUpdateFailed
-from seiso.services.promus import Promus, QueryFilter
+from seiso.services.promus import Promus
+from seiso.services.promus.authorities import QueryFilter
 
 logger = setup_logging(level=logging.INFO)
 
@@ -108,8 +108,10 @@ class Processor:
         ])
 
     def get_promus_records(self):
-        return self.promus.persons.list([
-            QueryFilter('person.NB_ID IS NOT NULL')
+        return self.promus.authorities.person.list([
+            QueryFilter('ReferenceNr IS NULL'),
+            QueryFilter('Felles_ID = Bibsent_ID'),
+            QueryFilter('NB_ID IS NOT NULL'),
         ], with_items=False)
 
     def replace_promus_link(self, bibbi_rec, old_noraf_rec, new_noraf_rec_id):
@@ -122,12 +124,12 @@ class Processor:
             str(replacement_record)
         )
         logger.warning(msg)
-        self.promus.persons.link_to_noraf(bibbi_rec, replacement_record, False, reason=msg)
+        self.promus.authorities.person.link_to_noraf(bibbi_rec, replacement_record, False, reason=msg)
         time.sleep(10)
         return replacement_record
 
     def check_link(self, bibbi_rec: BibbiPerson, noraf_rec: NorafJsonRecord):
-        logger.info('%s "%s" <> %s "%s"', bibbi_rec.id, bibbi_rec.name, noraf_rec.id, noraf_rec.name)
+        logger.debug('%s "%s" <> %s "%s"', bibbi_rec.id, bibbi_rec.name, noraf_rec.id, noraf_rec.name)
         noraf_update_reasons = []
 
         # Check record type

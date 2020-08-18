@@ -13,7 +13,7 @@ from ..services.alma import get_alma_candidates
 from ..common.interfaces import NorafPerson, ViafPerson, Strategy, Match, NoMatch
 from ..matcher.matchers import isbn_matcher, title_matcher
 from ..services.viaf import get_viaf_candidates
-from ..services.promus import Promus, BibbiPersons, BibbiPerson, QueryFilter
+from ..services.promus.authorities import Promus, BibbiPersons, BibbiPerson, QueryFilter
 from ..common.logging import setup_logging
 
 logger = setup_logging()
@@ -187,8 +187,10 @@ def main():
     promus = Promus()
 
     # Hent alle personer fra Bibbi
-    bibbi_persons = promus.persons.list([
-        QueryFilter('person.NB_ID IS NULL')
+    bibbi_persons = promus.authorities.person.list([
+        QueryFilter('ReferenceNr IS NULL'),
+        QueryFilter('Felles_ID = Bibsent_ID'),
+        QueryFilter('NB_ID IS NULL'),
     ])
     logger.info('%d persons read from Promus', len(bibbi_persons))
 

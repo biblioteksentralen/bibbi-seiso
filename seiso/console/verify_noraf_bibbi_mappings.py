@@ -6,19 +6,20 @@ import logging
 import os
 import json
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Sequence
 
 from dotenv import load_dotenv
 
 from seiso.common.noraf_record import NorafXmlRecord
-from seiso.common.interfaces import NorafPersonRecord, BibbiRecord, BibbiPerson, NorafRecord
+from seiso.common.interfaces import NorafPersonRecord, NorafRecord
 from seiso.common.logging import setup_logging
 from tqdm import tqdm
 from lxml import etree
 from seiso.common.xml import XmlNode
 from seiso.console.helpers import Report, ReportHeader, storage_path
 from seiso.services.noraf import Noraf
-from seiso.services.promus import Promus, QueryFilter
+from seiso.services.promus import Promus
+from seiso.services.promus.authorities import QueryFilter
 
 log = setup_logging(level=logging.INFO)
 
@@ -157,21 +158,23 @@ class Processor:
         bibbi_ids = noraf_rec.other_ids.get('bibbi', [])
         for bibbi_id2 in bibbi_ids:
             if bibbi_id2 != bibbi_id:
-                bibbi_rec2 = self.promus.persons.get(bibbi_id2, with_items=False)
+                bibbi_rec2 = self.promus.authorities.person.get(bibbi_id2, with_items=False)
                 if bibbi_rec2 is not None:
                     self.update_noraf_record(
                         noraf_rec,
                         remove_ids=[bibbi_id],
-                        reason='Noraf-posten er også lenket til Bibbi-posten <%s>, som eksisterer. ' \
-                        'Fjerner derfor lenken til %s' % (str(bibbi_rec2), bibbi_id)
+                        reason='Noraf-posten er også lenket til Bibbi-posten <%s>, som eksisterer. '
+                               'Fjerner derfor lenken til %s' % (str(bibbi_rec2), bibbi_id)
                     )
                     return
 
         # ------------------
         # Case 2) Hvis det finnes en annen Bibbi-post B2 med samme navn og levetid, lenker vi N1 til den.
 
-        matches = list(self.promus.persons.list([
-            QueryFilter('person.PersonName = ?', noraf_rec.name)
+        matches = list(self.promus.authorities.person.list([
+            QueryFilter('ReferenceNr IS NULL'),
+            QueryFilter('Felles_ID = Bibsent_ID'),
+            QueryFilter('PersonName = ?', noraf_rec.name)
         ]).values())
         date_matches = [match for match in matches if noraf_rec.dates is not None and match.dates == noraf_rec.dates]
 
@@ -217,7 +220,7 @@ class Processor:
 
     def process_non_symmetric_link(self, noraf_rec: NorafPersonRecord, bibbi_id: str):
 
-        bibbi_rec = self.promus.persons.get(bibbi_id, with_items=False)
+        bibbi_rec = self.promus.authorities.person.get(bibbi_id, with_items=False)
         if bibbi_rec is None or bibbi_rec.noraf_id == noraf_rec.id:
             # This can happen if the ID cache is stale
             return
@@ -230,10 +233,12 @@ class Processor:
             log.info('Oppdaterer Promus: Legger til manglende tilbakelenke fra Bibbi:%s til Noraf:%s',
                      bibbi_rec.id, noraf_rec.id)
             noraf_json_rec = self.noraf.get(noraf_rec.id)
-            self.promus.persons.link_to_noraf(bibbi_rec, noraf_json_rec, False,
-                                              reason='Det eksisterte en lenke fra Noraf-posten %s til Bibbi-posten %s'
-                                                     % (noraf_rec.id, bibbi_rec.id)
-                                              )
+            self.promus.authorities.person.link_to_noraf(
+                bibbi_rec,
+                noraf_json_rec,
+                False,
+                reason='Det eksisterte en lenke fra Noraf-posten %s til Bibbi-posten %s' % (noraf_rec.id, bibbi_rec.id)
+            )
             return
 
         target_noraf_rec = self.noraf.get(bibbi_rec.noraf_id)
@@ -244,11 +249,14 @@ class Processor:
             log.info('Oppdaterer Promus: Bibbi:%s fra Noraf:%s til Noraf:%s',
                      bibbi_rec.id, bibbi_rec.noraf_id, noraf_rec.id)
             noraf_json_rec = self.noraf.get(noraf_rec.id)
-            self.promus.persons.link_to_noraf(bibbi_rec, noraf_json_rec, False,
-                                              reason='Det eksisterte en lenke fra Noraf-posten %s til Bibbi-posten %s. '
-                                                     'Bibbi-posten lenket til en slettet Noraf-post %s'
-                                                     % (noraf_rec.id, bibbi_rec.id, bibbi_rec.noraf_id)
-                                              )
+            self.promus.authorities.person.link_to_noraf(
+                bibbi_rec,
+                noraf_json_rec,
+                False,
+                reason='Det eksisterte en lenke fra Noraf-posten %s til Bibbi-posten %s. '
+                       'Bibbi-posten lenket til en slettet Noraf-post %s'
+                       % (noraf_rec.id, bibbi_rec.id, bibbi_rec.noraf_id)
+            )
             return
 
         # Noraf-posten N1 lenker til Bibbi-posten B1, men Bibbi-posten B1 lenker til en annen, ikke-slettet
@@ -299,7 +307,7 @@ class Processor:
         # If more than one link, add to the one-to-many report
         if n_links > 1:
             full_recs = [
-                self.promus.persons.get(bibbi_id, with_items=False)
+                self.promus.authorities.person.get(bibbi_id, with_items=False)
                 for bibbi_id in bibbi_ids
             ]
             row = []

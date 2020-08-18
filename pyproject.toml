@@ -42,7 +42,6 @@ pyflakes = "^2.2.0"
 noraf = "seiso.console.noraf:main"
 match_persons = "seiso.console.match_persons:main"
 update_persons = "seiso.console.update_persons:main"
-validate_persons = "seiso.console.validate_persons:main"
 verify_bibbi_noraf_mappings = "seiso.console.verify_bibbi_noraf_mappings:main"
 verify_noraf_bibbi_mappings = "seiso.console.verify_noraf_bibbi_mappings:main"
 

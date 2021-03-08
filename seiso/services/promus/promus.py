@@ -25,7 +25,7 @@ class MsSql:
                 'UID=%(user)s',
                 'PWD=%(password)s',
                 'TDS_Version=8.0',
-                'Port=1433',
+                'Port=%(port)s',
             ]
         else:
             connection_args = [
@@ -97,11 +97,12 @@ class MsSql:
 
 class Promus:
 
-    def __init__(self, server=None, database=None, user=None, password=None, update_log: Optional[Path] = None):
+    def __init__(self, server=None, port=None, database=None, user=None, password=None, update_log: Optional[Path] = None):
         if update_log is None:
             update_log = log_path('promus_updates.log')
         self.connection_options = {
             'server': server or os.getenv('PROMUS_HOST'),
+            'port': port or os.getenv('PROMUS_PORT'),
             'database': database or os.getenv('PROMUS_DATABASE'),
             'user': user or os.getenv('PROMUS_USER'),
             'password': password or os.getenv('PROMUS_PASSWORD'),

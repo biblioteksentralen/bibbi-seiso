@@ -102,9 +102,10 @@ class CurriculumRecord(PromusRecord):
 
 @dataclass
 class BibbiAuthorityRecord(PromusRecord):
-    Bibsent_ID: str = None
+    Bibsent_ID: int = None
     Created: datetime = None
     LastChanged: datetime = None
+    Approved: bool = True
 
     # bibbi_id: str = None
     # vocabulary: str = 'bibbi'
@@ -206,9 +207,6 @@ class BibbiPersonRecord(BibbiAuthorityRecord):
     FieldCode: Optional[str] = None
     Security_ID: Optional[str] = None
     UserID: Optional[str] = None
-    LastChanged: Optional[str] = None
-    Created: Optional[str] = None
-    Approved: Optional[str] = None
     ApproveDate: Optional[str] = None
     ApprovedUserID: Optional[str] = None
     BibbiNr: Optional[str] = None
@@ -222,7 +220,6 @@ class BibbiPersonRecord(BibbiAuthorityRecord):
     WebDeweyNr: Optional[str] = None
     WebDeweyApproved: Optional[str] = None
     WebDeweyKun: Optional[str] = None
-    Bibsent_ID: Optional[str] = None
     Felles_ID: Optional[str] = None
     NB_ID: Optional[str] = None
     NB_PersonNation: Optional[str] = None
@@ -252,7 +249,8 @@ class BibbiPersonRecord(BibbiAuthorityRecord):
             nationality=self.PersonNation,
             gender=self.Gender,
             dates=str(self.PersonYear),
-            modified=self.LastChanged
+            created=self.Created,
+            modified=self.LastChanged,
             # country_codes=...
         )
 
@@ -407,9 +405,6 @@ class BibbiAuthorityCollection(PromusCollection):
                 record.set_references(references.get(record.primary_key, []))
                 yield record
 
-    def by_bibbi_id(self, bibbi_id: str) -> Optional[PromusRecord]:
-        return self.first(Bibsent_ID=bibbi_id)
-
 
 @dataclass
 class Country(PromusRecord):
@@ -445,9 +440,6 @@ class PersonCollection(BibbiAuthorityCollection):
 
     def _record_factory(self, row):
         return super()._record_factory(row)
-
-    def get(self, *args, **kwargs) -> Optional[BibbiPersonRecord]:
-        return super().get(*args, **kwargs)
 
     def list(self, *args, **kwargs) -> Generator[BibbiPersonRecord, None, None]:
         return super().list(*args, **kwargs)
@@ -537,9 +529,9 @@ class AuthorityCollections:
             #self.geographic,
         ]
 
-    def get(self, bibbi_id: str) -> Optional[BibbiAuthority]:
+    def first(self, **kwargs) -> Optional[BibbiAuthorityRecord]:
         for table in self._all:
-            if record := table.get(bibbi_id):
+            if record := table.first(**kwargs):
                 return record
         return None
 

@@ -14,6 +14,7 @@ update_logger = logging.getLogger('promus_update_logger')
 
 ColumnDataTypes = List[Union[str, int, None]]
 
+
 class MsSql:
 
     def __init__(self, update_log: Optional[Path] = None, read_only_mode=True, **db_settings):

@@ -28,7 +28,15 @@ sqlparams = "^3.0.0"
 pyyaml = "^5.3.1"
 humanize = "^2.5.0"
 sickle = {git = "https://github.com/danmichaelo/sickle.git", rev = "retry-patch"}
-ipykernel = "^5.3.4"
+requests-toolbelt = "^0.9.1"
+rdflib = "^5.0.0"
+rdflib-jsonld = "^0.5.0"
+attrs = "^20.3.0"
+pandas = "^1.2.2"
+ipykernel = "^5.5.0"
+structlog = "^21.1.0"
+mdmail = "^0.1.3"
+SPARQLWrapper = "^1.8.5"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.770"
@@ -44,6 +52,9 @@ match_persons = "seiso.console.match_persons:main"
 update_persons = "seiso.console.update_persons:main"
 verify_bibbi_noraf_mappings = "seiso.console.verify_bibbi_noraf_mappings:main"
 verify_noraf_bibbi_mappings = "seiso.console.verify_noraf_bibbi_mappings:main"
+monitor_nbvok = "seiso.console.monitor_nbvok:main"
+map_nbvok = "seiso.console.map_nbvok:main"
+import_grep = "seiso.console.import_grep:main"
 
 [build-system]
 requires = ["poetry>=0.12"]

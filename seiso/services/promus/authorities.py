@@ -1,12 +1,13 @@
 from __future__ import annotations
 import logging
+from abc import abstractmethod
 from datetime import datetime
 
-from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple, Union, Callable
+from dataclasses import dataclass, field, InitVar, fields, Field
+from typing import List, Dict, Optional, Tuple, Union, Callable, Generator, Set, ClassVar
 
 from seiso.common.noraf_record import NorafJsonRecord
-from seiso.common.interfaces import BibbiPerson, BibbiVare, BibbiRecord
+from seiso.common.interfaces import Authority, Person
 
 from typing import TYPE_CHECKING
 
@@ -15,15 +16,37 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-ColumnDataTypes = List[Union[str, int, None]]
-BibbiPersons = Dict[str, BibbiPerson]
-BibbiRecords = Dict[str, BibbiRecord]
+
+def escape_column_name(value):
+    return '"%s"' % value.replace('"', '')
+
+
+@dataclass
+class Query:
+    query: str
+    params: List[any]
 
 
 @dataclass
 class QueryFilter:
     stmt: str
     param: Optional[str] = None
+
+
+@dataclass
+class QueryFilters:
+    filters: List[QueryFilter] = field(default_factory=list)
+
+    def append(self, query_filter: QueryFilter):
+        self.filters.append(query_filter)
+
+    def get_where_stmt(self, initial='WHERE'):
+        if len(self.filters) > 0:
+            return initial + ' ' + ' AND '.join([filt.stmt for filt in self.filters])
+        return ''
+
+    def get_query_params(self):
+        return [filt.param for filt in self.filters if filt.param is not None]
 
 
 @dataclass
@@ -45,202 +68,392 @@ class Column:
         return value
 
 
-class AuthorityCollection:
-    table_name = None
-    item_cls = BibbiRecord
-    primary_key = 'AuthID'
-    name_column = 'AuthName'
-    select_columns = [
-        Column('Bibsent_ID', 'id'),
-        Column('Created', 'created'),
-        Column('LastChanged', 'modified'),
-    ]
-    date_columns = [
-        'created',
-        'modified',
-        'item_approve_date',
-    ]
-    marc_fields=()
+@dataclass
+class PromusRecord:
+    primary_key: int = None
+    collection: PromusCollection = None
+    special_fields: ClassVar = ('primary_key', 'collection')
 
-    def __init__(self, promus: Promus):
-        self.promus = promus
-        self.conn = promus.connection()
+    def __post_init__(self):
+        pass
 
-    def build_update_query(self, entity: BibbiRecord, **kwargs) -> Tuple[str, ColumnDataTypes]:
-        kwargs['LastChanged'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:23]  # milliseconds with 3 digits
-        query = 'UPDATE %s SET %s WHERE Bibsent_ID=?' % (
-            self.table_name,
-            ', '.join(['%s=?' % key for key in kwargs.keys()])
+    def update(self, **kwargs):
+        return self.collection.update(self, **kwargs)
+
+
+@dataclass
+class CurriculumRecord(PromusRecord):
+    Code: str = None
+    Name: str = None
+    Name_N: str = None
+    Name_E: str = None
+    Name_S: str = None
+    URI: str = None
+    ValidFrom: str = None
+    ValidUntil: str = None
+    TeachedUntil: str = None
+    ReplacedBy: str = None
+    Notes: str = None
+    LastChanged: datetime = None
+    LastChanged_udir: datetime = None
+    Approved: bool = True
+    Status: str = None
+
+
+@dataclass
+class BibbiAuthorityRecord(PromusRecord):
+    Bibsent_ID: str = None
+    Created: datetime = None
+    LastChanged: datetime = None
+
+    # bibbi_id: str = None
+    # vocabulary: str = 'bibbi'
+    # created: Optional[date] = None
+    # modified: Optional[date] = None
+
+    def set_references(self, references):
+        self._references = references
+
+    def get_references(self):
+        return self._references
+
+    @abstractmethod
+    def label(self):
+        pass
+
+    def get_items_query(self, marc_fields: Optional[Tuple[str]] = None) -> Query:
+        """Henter bibliografiske poster som denne autoriteten er brukt på, evt. avgrenset på relasjonstype.
+
+        marc_fields: For autoriteter som kan brukes både som ansvarshaver (1XX, 7XX) og emne (6XX), kan en avgrense på
+                     en av delene. Som standard hentes alt.
+        """
+        marc_fields = marc_fields or self.collection.marc_fields
+
+        return Query(
+            """
+                SELECT
+                   item.Item_ID AS primary_key,
+                   item.Bibbinr AS id,
+                   item.Varenr AS product_key,
+                   item.Title AS title
+                FROM Item AS item
+                INNER JOIN ItemField AS field
+                    ON field.Item_ID = item.Item_ID
+                    AND field.FieldCode IN ({marc_fields})
+                WHERE field.Authority_ID = ?
+            """.format(marc_fields=','.join(['?' for _ in marc_fields])),
+            [*marc_fields, self.primary_key]
         )
-        params = list(kwargs.values()) + [int(entity.id)]
-        return query, params
 
-    def update(self, entity: BibbiRecord, dry_run: bool, **kwargs):
-        query, params = self.build_update_query(entity, **kwargs)
-        if dry_run:
-            logger.info('[Dry run] %s', self.conn.format_log_entry(query, params))
-        else:
-            if self.conn.update(query, params) == 0:
+        # print(query, query_params)
+        # for row in self.collection.conn.select(query, query_params, normalize=False):
+        #     yield Item(**row)
+
+
+@dataclass
+class BibbiGenreRecord(BibbiAuthorityRecord):
+    Title: Optional[str] = None
+    Title_N: Optional[str] = None
+    GeoUnderTopic: Optional[str] = None
+    GeoUnderTopic_N: Optional[str] = None
+
+    def label(self):
+        if self.GeoUnderTopic is not None:
+            return self.Title + ' - ' + ' - '.join(self.GeoUnderTopic.split('$z'))
+        return self.Title
+
+
+@dataclass
+class BibbiGeographicRecord(BibbiAuthorityRecord):
+    GeoName: Optional[str] = None
+    GeoName_N: Optional[str] = None
+    GeoUnderTopic: Optional[str] = None
+    GeoUnderTopic_N: Optional[str] = None
+    GeoDetail: Optional[str] = None
+
+    def label(self):
+        if self.GeoUnderTopic is not None:
+            return self.GeoName + ' - ' + self.GeoUnderTopic
+        return self.GeoName
+
+
+@dataclass
+class BibbiPersonRecord(BibbiAuthorityRecord):
+    """Person i Bibbi"""
+    PersonId: Optional[str] = None
+    PersonName: Optional[str] = None
+    PersonNr: Optional[str] = None
+    PersonTitle: Optional[str] = None
+    PersonTitle_N: Optional[str] = None
+    PersonYear: Optional[str] = None
+    PersonNation: Optional[str] = None
+    SortingTitle: Optional[str] = None
+    MusicCast: Optional[str] = None
+    MusicNr: Optional[str] = None
+    Arrangment: Optional[str] = None
+    Toneart: Optional[str] = None
+    TopicTitle: Optional[str] = None
+    SortingSubTitle: Optional[str] = None
+    UnderTopic: Optional[str] = None
+    UnderTopic_N: Optional[str] = None
+    Qualifier: Optional[str] = None
+    Qualifier_N: Optional[str] = None
+    UnderMainText: Optional[str] = None
+    LanguageText: Optional[str] = None
+    DeweyNr: Optional[str] = None
+    TopicLang: Optional[str] = None
+    IssnNr: Optional[str] = None
+    FieldCode: Optional[str] = None
+    Security_ID: Optional[str] = None
+    UserID: Optional[str] = None
+    LastChanged: Optional[str] = None
+    Created: Optional[str] = None
+    Approved: Optional[str] = None
+    ApproveDate: Optional[str] = None
+    ApprovedUserID: Optional[str] = None
+    BibbiNr: Optional[str] = None
+    NotInUse: Optional[str] = None
+    Reference: Optional[str] = None
+    ReferenceNr: Optional[str] = None
+    Source: Optional[str] = None
+    bibbireferencenr: Optional[str] = None
+    PersonForm: Optional[str] = None
+    NotNovelette: Optional[str] = None
+    WebDeweyNr: Optional[str] = None
+    WebDeweyApproved: Optional[str] = None
+    WebDeweyKun: Optional[str] = None
+    Bibsent_ID: Optional[str] = None
+    Felles_ID: Optional[str] = None
+    NB_ID: Optional[str] = None
+    NB_PersonNation: Optional[str] = None
+    NB_Origin: Optional[str] = None
+    MainPerson: Optional[str] = None
+    Comment: Optional[str] = None
+    Origin: Optional[str] = None
+    KatStatus: Optional[str] = None
+    Gender: Optional[str] = None
+    Handle_ID: Optional[str] = None
+    Nametype: Optional[str] = None
+    KlasseSpraak_Tid: Optional[str] = None
+    KlasseSpraak_Tid_Approved: Optional[str] = None
+    KlasseTid: Optional[str] = None
+    KlasseComic: Optional[str] = None
+    _DisplayValue: Optional[str] = None
+
+    def label(self):
+        return self.PersonName  # Todo: Add more stuff
+
+    def get_person_repr(self) -> Person:
+        return Person(
+            vocabulary='bibbi',
+            id=str(self.Bibsent_ID),
+            name=self.PersonName,
+            alt_names=[x.PersonName for x in self.get_references()],
+            nationality=self.PersonNation,
+            gender=self.Gender,
+            dates=str(self.PersonYear),
+            modified=self.LastChanged
+            # country_codes=...
+        )
+
+
+@dataclass
+class BibbiCorporationRecord(BibbiAuthorityRecord):
+    """Person i Bibbi"""
+
+    def label(self):
+        raise NotImplementedError()
+
+
+ColumnDataTypes = List[Union[str, int, None]]
+BibbiPersons = Dict[str, BibbiPersonRecord]
+BibbiAuthorities = Dict[str, BibbiAuthorityRecord]
+
+
+@dataclass
+class PromusCollection:
+    promus: InitVar[Promus]
+    table_name: str
+    record_type: type
+    primary_key_column: str
+    last_changed_column: Optional[str] = None
+    marc_fields: Set[int] = field(default_factory=lambda: {})
+    data_fields: Tuple[Field] = field(default_factory=lambda: ())
+
+    def __post_init__(self, promus: Promus):
+        self._promus = promus
+        self._conn = promus.connection()
+        self.data_fields = tuple(f for f in fields(self.record_type) if f.name not in self.record_type.special_fields)
+
+    def _record_factory(self, row):
+        return self.record_type(
+            collection=self,
+            **row
+        )
+
+    def list(self, filters: Optional[QueryFilters] = None) -> Generator[PromusRecord, None, None]:
+        """List authorities for this table"""
+        filters = filters or QueryFilters()
+        query = """
+            SELECT {primary_key} AS primary_key,
+                   {select_columns}
+            FROM {table} AS authority 
+            {where_stmt}
+        """.format(
+            primary_key=self.primary_key_column,
+            select_columns=', '.join([f.name for f in self.data_fields]),
+            table=self.table_name,
+            where_stmt=filters.get_where_stmt(),
+        )
+        query_params = [*filters.get_query_params()]
+        # print(query, query_params)
+        for row in self._conn.select(query, query_params, normalize=False):
+            yield self._record_factory(row)
+
+    def insert(self, **kwargs):
+        query = 'INSERT INTO {table} ({keys}) VALUES ({values})'.format(
+            table=self.table_name,
+            keys=', '.join(['%s' % escape_column_name(key) for key in kwargs.keys()]),
+            values=', '.join(['?' for _ in kwargs.keys()]),
+        )
+        params = list(kwargs.values())
+        if self._conn.update(query, params) == 0:
+            raise Exception('No rows affected by the INSERT query: %s' % query)
+
+    def update(self, record: PromusRecord, **kwargs) -> List[Change]:
+        if not isinstance(record, self.record_type):
+            raise ValueError('record must be instance of ' + str(self.record_type))
+
+        changes = []
+        for key, value in kwargs.items():
+            if not hasattr(record, key):
+                raise ValueError('Key does not exist on %s: %s' % (type(record), key))
+            existing_value = getattr(record, key)
+            if value != existing_value:
+                if isinstance(value, datetime) and isinstance(existing_value, datetime):
+                    if abs((value - existing_value).total_seconds()) <= 1:
+                        continue  # ignore round-off errors
+                changes.append(Change(column=key, new_value=value, old_value=getattr(record, key), record=record))
+
+        if len(changes) > 0:
+            if self.last_changed_column is not None:
+                changes.append(Change(column=self.last_changed_column,
+                                      new_value=datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:23],  # milliseconds with 3 digits,
+                                      old_value=getattr(record, self.last_changed_column),
+                                      record=record))
+
+            changes_query_str = ', '.join(['%s=?' % escape_column_name(change.column) for change in changes])
+            changes_params = [change.new_value for change in changes]
+
+            query = f"UPDATE {self.table_name} SET {changes_query_str} WHERE \"{self.primary_key_column}\"=?"
+            params = changes_params + [int(record.primary_key)]
+            if self._conn.update(query, params) == 0:
                 raise Exception('No rows affected by the UPDATE query: %s' % query)
 
-    def _build_list_query_with_items(self, filters):
-        return self._build_list_query(
-            filters,
-            columns=self.select_columns + [
-                Column('Text', 'item_isbn', table='iv1'),
-                Column('Title', 'item_title', table='item'),
-                Column('Text', 'item_original_title', table='iv2'),
-                Column('ApproveDate', 'item_approve_date', table='item'),
-            ],
-            joins="""
-                LEFT JOIN ItemField AS field 
-                    ON field.Authority_ID = authority.{primary_key} 
-                    AND field.FieldCode IN ({marc_fields})
-                LEFT JOIN Item AS item 
-                    ON field.Item_ID = item.Item_ID 
-                    AND item.ApproveDate IS NOT NULL
-                LEFT JOIN ItemFieldSubFieldView as iv1 
-                    ON iv1.Item_ID = Item.Item_ID 
-                    AND iv1.FieldCode = '020' 
-                    AND iv1.SubFieldCode = 'a'
-                LEFT JOIN ItemFieldSubFieldView as iv2 
-                    ON iv2.Item_ID = Item.Item_ID 
-                    AND iv2.FieldCode = '240' 
-                    AND iv2.SubFieldCode = 'a'
-            """.format(
-                primary_key=self.primary_key,
-                marc_fields=', '.join(["'%s'" % marc_field for marc_field in self.marc_fields]),
-            ))
+            for key, value in kwargs.items():
+                setattr(record, key, value)
 
-    def _build_list_query(self, filters: list, columns: Optional[list] = None, joins: Optional[str] = None):
-        return """
-            SELECT {primary_key} AS local_id, {columns} 
-            FROM {table} AS authority 
-            {joins} 
-            WHERE {filters} 
-            ORDER BY authority.Bibsent_ID
-        """.format(
-            primary_key=self.primary_key,
-            columns=', '.join([str(column) for column in columns or self.select_columns]),
-            table=self.table_name,
-            joins=joins or '',
-            filters=' AND '.join([filt.stmt for filt in filters]),
-        ), [filt.param for filt in filters if filt.param is not None]
+        return changes
 
-    def list(self, filters: List[QueryFilter] = None, with_items: bool = True) -> BibbiRecords:
-        id_map = {}
+    def all(self, **kwargs) -> Generator[PromusRecord, None, None]:
+        return self.list(filters=QueryFilters([
+            QueryFilter(
+                '"%s" = ?' % key.replace('"', ''),
+                value
+            )
+            for key, value in kwargs.items()
+        ]))
 
-        if with_items:
-            query, params = self._build_list_query_with_items(filters)
-        else:
-            query, params = self._build_list_query(filters)
+    def first(self, **kwargs) -> Optional[PromusRecord]:
+        for res in self.all(**kwargs):
+            return res
 
-        results: dict = {}
-        for row in self.conn.select(query, params, normalize=True, date_fields=self.date_columns):
-            bibbi_id = row['id']
-            id_map[row['local_id']] = bibbi_id
-            if bibbi_id not in results:
-                results[bibbi_id] = self._make_record(row)
 
-            if row.get('item_isbn') is not None:
-                vare = BibbiVare(
-                    isbn=row['item_isbn'].replace('-', ''),
-                    titles=[row['item_title']],
-                    approve_date=row['item_approve_date'],
-                )
-                if row['item_original_title'] is not None:
-                    vare.titles.append(row['item_original_title'])
-                results[bibbi_id].items.append(vare)
+@dataclass
+class Change:
+    column: str
+    new_value: Optional[str]
+    old_value: Optional[str]
+    record: PromusRecord
 
-        for bibbi_id, bibbi_record in results.items():
-            approve_dates = [item.approve_date for item in bibbi_record.items]
-            if len(approve_dates) == 0:
-                bibbi_record.newest_approved = None
-            else:
-                bibbi_record.newest_approved = sorted(approve_dates)[-1]
 
+@dataclass
+class BibbiAuthorityCollection(PromusCollection):
+    last_changed_column: str = 'LastChanged'
+    # record_type = BibbiAuthority
+    # name_column = 'AuthName'
+
+    def list_references(self) -> Dict[int, PromusRecord]:
+        references = {}
         query = """
-            SELECT
-                authority.ReferenceNr AS ref,
-                authority.{name_column} AS name
-            FROM
-                {table} AS authority
-            WHERE
-                len(authority.ReferenceNr) > 0
-        """.format(table=self.table_name, name_column=self.name_column)
-        for row in self.conn.select(query, normalize=True):
-            ref_id = row['ref']
-            if ref_id in id_map:
-                results[id_map[ref_id]].alt_names.append(row['name'])
+            SELECT {primary_key_column} AS primary_key,
+                   {select_columns}
+            FROM {table} AS authority
+            WHERE ISNULL(authority.ReferenceNr, '') <> ''
+        """.format(primary_key_column=self.primary_key_column,
+                   select_columns=', '.join([f.name for f in self.data_fields]),
+                   table=self.table_name)
+        for row in self._conn.select(query, normalize=False):
+            ref_id = row['ReferenceNr']
+            references[ref_id] = references.get(ref_id, []) + [self._record_factory(row)]
+        return references
 
-        return results
+    def list(self, filters: Optional[QueryFilters] = None) -> Generator[PromusRecord, None, None]:
+        """List authorities for this table"""
+        references = self.list_references()  # @TODO: Cache
+        filters.append(QueryFilter("ISNULL(authority.ReferenceNr, '') = ''"))
+        for record in super().list(filters):
+            if isinstance(record, BibbiAuthorityRecord):  # just to make PyCharm happy
+                record.set_references(references.get(record.primary_key, []))
+                yield record
 
-    def get(self, bibbi_id: str, with_items: bool = True) -> Optional[BibbiRecord]:
-        results = self.list([
-            QueryFilter('Bibsent_ID = ?', bibbi_id)
-        ], with_items=with_items)
-        if bibbi_id in results:
-            return results[bibbi_id]
-        return None
+    def by_bibbi_id(self, bibbi_id: str) -> Optional[PromusRecord]:
+        return self.first(Bibsent_ID=bibbi_id)
 
-    def _make_record(self, row):
-        record_data = {
-            column.alias: column.format_value(row[column.alias])
-            for column in self.select_columns
+
+@dataclass
+class Country(PromusRecord):
+    CountryShortName: str = None
+    ISO_3166_Alpha_2: str = None
+
+
+@dataclass
+class CountryCollection(PromusCollection):
+    table_name: str = 'EnumCountries'
+    record_type: type = Country
+    primary_key_column: str = 'CountryID'
+
+    def __post_init__(self, promus: Promus):
+        super().__post_init__(promus)
+        self._short_name_map = {
+            country.CountryShortName: country.ISO_3166_Alpha_2
+            for country in self.list()
+            if isinstance(country, Country) and country.ISO_3166_Alpha_2 is not None
         }
-        return self.item_cls(**record_data)
-
-
-class CountryCollection:
-
-    def __init__(self, promus: Promus):
-        self.conn = promus.connection()
-        self._short_name_map = {}
 
     @property
-    def short_name_map(self):
-        if len(self._short_name_map) == 0:
-            for row in self.conn.select('SELECT CountryShortName, ISO_3166_Alpha_2 FROM EnumCountries', normalize=True):
-                if row['ISO_3166_Alpha_2'] is not None:
-                    self._short_name_map[row['CountryShortName']] = row['ISO_3166_Alpha_2'].lower()
+    def get_short_name_map(self):
         return self._short_name_map
 
 
-class PersonCollection(AuthorityCollection):
-    table_name = 'AuthorityPerson'
-    item_cls = BibbiPerson
-    primary_key = 'PersonId'
-    name_column = 'PersonName'
-    marc_fields=(100, 600, 700)
+@dataclass
+class PersonCollection(BibbiAuthorityCollection):
+    table_name: str = 'AuthorityPerson'
+    record_type: type = BibbiPersonRecord
+    primary_key_column: str = 'PersonId'
+    marc_fields: Set[int] = field(default_factory=lambda: {100, 600, 700})
 
-    def __init__(self, promus: Promus):
-        super(PersonCollection, self).__init__(promus)
-        self.select_columns += [
-            Column('NB_ID', 'noraf_id'),
-            Column('PersonName', 'name'),
-            Column('PersonYear', 'dates'),
-            Column('PersonNation', 'nationality'),
-            Column('Gender', 'gender'),
-            Column('PersonNation', 'country_codes', lambda x: self.country_codes_from_nationality(x)),
-        ]
-        self.countries = CountryCollection(promus)
+    def _record_factory(self, row):
+        return super()._record_factory(row)
 
-    def get(self, *args, **kwargs) -> Optional[BibbiPerson]:
-        return super(PersonCollection, self).get(*args, **kwargs)
+    def get(self, *args, **kwargs) -> Optional[BibbiPersonRecord]:
+        return super().get(*args, **kwargs)
 
-    def list(self, *args, **kwargs) -> BibbiPersons:
-        return super(PersonCollection, self).list(*args, **kwargs)
+    def list(self, *args, **kwargs) -> Generator[BibbiPersonRecord, None, None]:
+        return super().list(*args, **kwargs)
 
-    def country_codes_from_nationality(self, value):
-        if value is None:
-            return []
-        values = value.split('-')
-        values = [self.countries.short_name_map[x] for x in values if x in self.countries.short_name_map]
-        return values
-
-    def link_to_noraf(self, bibbi_person: BibbiPerson, noraf_json_rec: NorafJsonRecord, dry_run: bool, reason: str):
+    def link_to_noraf(self, bibbi_person: BibbiPersonRecord, noraf_json_rec: NorafJsonRecord, dry_run: bool, reason: str):
         self.update(bibbi_person,
-                    dry_run,
                     NB_ID=int(noraf_json_rec.id),
                     NB_PersonNation=noraf_json_rec.nationality,
                     Origin=noraf_json_rec.origin,
@@ -248,42 +461,75 @@ class PersonCollection(AuthorityCollection):
                     Handle_ID=noraf_json_rec.identifiers('handle')[0].split('/', 3)[-1]
                     )
         logger.info('Lenker Bibbi:%s (%s) til Noraf:%s (%s). Årsak: %s',
-                    bibbi_person.id,
-                    bibbi_person.name,
+                    bibbi_person.Bibsent_ID,
+                    bibbi_person.label(),
                     noraf_json_rec.id,
                     noraf_json_rec.name,
                     reason)
 
 
-class TopicCollection(AuthorityCollection):
-    table_name = 'AuthorityTopic'
+@dataclass
+class CurriculumCollection(PromusCollection):
+    table_name: str = 'AuthorityCurriculum'
+    record_type: type = CurriculumRecord
+    primary_key_column: str = 'CurriculumID'
+    marc_fields: Set[int] = field(default_factory=lambda: {659})
+    last_changed_column: str = 'LastChanged'
 
 
-class CorporationCollection(AuthorityCollection):
-    table_name = 'AuthorityCorp'
+@dataclass
+class TopicCollection(BibbiAuthorityCollection):
+    table_name: str = 'AuthorityTopic'
+    record_type: type = PromusRecord  # @TODO
+    primary_key_column: str = 'AuthID'
+    marc_fields: Set[int] = field(default_factory=lambda: {650})
 
 
-class GeographicCollection(AuthorityCollection):
-    table_name = 'AuthorityGeographic'
+@dataclass
+class CorporationCollection(BibbiAuthorityCollection):
+    table_name: str = 'AuthorityCorp'
+    record_type: type = BibbiCorporationRecord
+    primary_key_column: str = 'CorpID'
+    marc_fields: Set[int] = field(default_factory=lambda: {111, 611, 711})
 
 
-class GenreCollection(AuthorityCollection):
-    table_name = 'AuthorityGenre'
+@dataclass
+class GeographicCollection(BibbiAuthorityCollection):
+    table_name: str = 'AuthorityGeographic'
+    record_type: type = BibbiGeographicRecord
+    primary_key_column: str = 'TopicId'
+    marc_fields: Set[int] = field(default_factory=lambda: {651})
+
+    def list(self, filters: Optional[QueryFilters] = None) -> Generator[BibbiGeographicRecord, None, None]:
+        return super(GeographicCollection, self).list(filters)
 
 
-class AuthorityCollections():
+@dataclass
+class GenreCollection(BibbiAuthorityCollection):
+    table_name: str = 'AuthorityGenre'
+    record_type: type = BibbiGenreRecord
+    primary_key_column: str = 'TopicId'
+    marc_fields: Set[int] = field(default_factory=lambda: {655})
+
+    def list(self, filters: Optional[QueryFilters] = None) -> Generator[BibbiGenreRecord, None, None]:
+        return super(GenreCollection, self).list(filters)
+
+
+class AuthorityCollections:
 
     def __init__(self, promus: Promus):
 
         self.person = PersonCollection(promus)
         self.corporation = CorporationCollection(promus)
-        # self.conference = ConferenceTable(promus)
+        # self.event = ConferenceTable(promus)
         self.topic = TopicCollection(promus)
         self.genre = GenreCollection(promus)
         self.geographic = GeographicCollection(promus)
+        self.curriculum = CurriculumCollection(promus)
 
         self._all = [
             self.person,
+            self.curriculum,
             # self.corporation,
             # self.conference,
             #self.topic,
@@ -291,13 +537,49 @@ class AuthorityCollections():
             #self.geographic,
         ]
 
-    def get(self, bibbi_id: str, with_items: bool = True) -> Optional[BibbiRecord]:
+    def get(self, bibbi_id: str) -> Optional[BibbiAuthority]:
         for table in self._all:
-            if record := table.get(bibbi_id, with_items):
+            if record := table.get(bibbi_id):
                 return record
         return None
 
-    def list(self, filters: List[QueryFilter] = None, with_items: bool = True) -> BibbiRecords:
+    def list(self, filters: List[QueryFilter] = None) -> BibbiAuthorities:
         # TODO
         pass
 
+
+@dataclass
+class Item:
+    id: str
+    primary_key_column: int
+    product_key: str
+    title: str
+
+
+@dataclass
+class ItemCollection:
+    promus: InitVar[Promus]
+
+    def __post_init__(self, promus: Promus):
+        # self._promus = promus
+        self._conn = promus.connection()
+        table_name = 'Item'
+
+    def by_authority(self, authority: Authority) -> Generator[Item, None, None]:
+        query = """
+            SELECT
+               item.Bibbinr AS id,
+               item.Item_ID AS primary_key, 
+               item.Varenr AS product_key,
+               item.Title AS title
+            FROM Item AS item
+            INNER JOIN ItemField AS field
+                ON field.Item_ID = item.Item_ID
+                AND field.FieldCode IN ({marc_fields})
+            WHERE field.Authority_ID = ?
+        """.format(marc_fields=','.join(['?' for _ in authority.collection.marc_fields]))
+        query_params = [*authority.collection.marc_fields, authority.primary_key]
+
+        # print(query, query_params)
+        for row in self._conn.select(query, query_params, normalize=False):
+            yield Item(**row)

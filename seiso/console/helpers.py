@@ -11,7 +11,7 @@ from openpyxl.styles import Font, PatternFill
 from tqdm import tqdm
 
 from seiso.common.noraf_record import NorafJsonRecord
-from seiso.common.interfaces import Person, NorafPerson, BibbiPerson
+from seiso.common.interfaces import Person, NorafPerson  #, BibbiPerson
 from seiso.common.logging import setup_logging
 
 log = setup_logging(level=logging.INFO)
@@ -20,8 +20,8 @@ log = setup_logging(level=logging.INFO)
 @dataclass
 class ReportHeader(object):
     line1: str
-    line2: str
-    width: int
+    line2: str = ''
+    width: int = 50
 
 
 def storage_path(dirname: Optional[str] = None, create: bool = True) -> Path:
@@ -42,12 +42,15 @@ class Report:
     def __init__(self):
         self.data = []
 
+    def add_row(self, columns):
+        self.data.append(columns)
+
     def add_person_row(self, person_rec: Person, columns: List[str]):
         prefix = ''
-        if isinstance(person_rec, NorafPerson) or isinstance(person_rec, NorafJsonRecord):
-            prefix = '{NORAF}'
-        elif isinstance(person_rec, BibbiPerson):
-            prefix = '{BIBBI}'
+        # if isinstance(person_rec, NorafPerson) or isinstance(person_rec, NorafJsonRecord):
+        #     prefix = '{NORAF}'
+        # elif isinstance(person_rec, BibbiPerson):
+        #     prefix = '{BIBBI}'
         columns = [
             prefix + person_rec.id,
             person_rec.name,
@@ -59,8 +62,7 @@ class Report:
         for col in columns:
             if not isinstance(col, str):
                 log.warning('Warning: Column not of type str: %s', str(columns))
-
-        self.data.append(columns)
+        self.add_row(columns)
 
     def save_json(self, filename: Path):
         with filename.open('w', encoding='utf-8') as fp:
@@ -104,7 +106,9 @@ class Report:
             row = []
             for value in values:
                 link = None
-                if value.startswith('{BIBBI}'):
+                if value is None:
+                    value = ''
+                elif value.startswith('{BIBBI}'):
                     value = value[7:]
                     link = 'https://id.bibbi.dev/bibbi/' + value
                 elif value.startswith('{NORAF}'):

@@ -32,6 +32,14 @@ class BibbiNorafMatch():
     noraf_id: str
 
 
+def country_codes_from_nationality(promus: Promus, value: Optional[str]):
+    if value is None:
+        return []
+    values = value.split('-')
+    values = [promus.authorities.countries.short_name_map[x] for x in values if x in promus.authorities.countries.short_name_map]
+    return values
+
+
 def update_person(promus: Promus,
                   noraf: Noraf,
                   match: BibbiNorafMatch,
@@ -143,16 +151,18 @@ def update_person(promus: Promus,
     # ------------------------------------------------------------------------------------------------------------
     # 043 $c Landskoder
 
-    if len(bibbi_person.country_codes) != 0 and len(noraf_person.country_codes) == 0:
+    bibbi_person_country_codes = country_codes_from_nationality(promus, bibbi_person.PersonNation)
+
+    if len(bibbi_person_country_codes) != 0 and len(noraf_person.country_codes) == 0:
         noraf_json_rec.add(NorafJsonMarcField.construct('043', ' ', ' ', [
             {
                 "subcode": "c",
                 "value": countryCode,
             }
-            for countryCode in bibbi_person.country_codes
+            for countryCode in bibbi_person_country_codes
         ]))
         logger.info('[Noraf:%s] Setter 043$c = "%s"',
-                    noraf_person.id, '" $c = "'.join(bibbi_person.country_codes))
+                    noraf_person.id, '" $c = "'.join(bibbi_person_country_codes))
 
     # ------------------------------------------------------------------------------------------------------------
     # Write result to file

@@ -4,26 +4,27 @@ from datetime import datetime, date
 from typing import List, Optional, Union, Callable, Generator, Dict
 
 from requests import Session
-
-
-@dataclass
-class BibbiVare:
-    isbn: str
-    approve_date: datetime
-    titles: List[str] = field(default_factory=list)
+#
+#
+# @dataclass
+# class BibbiVare:
+#     isbn: str
+#     approve_date: datetime
+#     titles: List[str] = field(default_factory=list)
 
 
 @dataclass
 class Authority:
-    """Autoritet i Bibbi eller Noraf"""
-    id: str   # MERK: Vi bruker alltid Bibsent_ID som id!
+    """Autoritet i Bibbi eller Noraf (eller andre steder)"""
+    id: str
     name: str
+    vocabulary: Optional[str] = None
+    alt_names: List[str] = field(default_factory=list)
     created: Optional[date] = None
     modified: Optional[date] = None
-    alt_names: List[str] = field(default_factory=list)
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #    return self.name
 
 
 @dataclass
@@ -45,24 +46,20 @@ class Person(Authority):
 class Corporation(Authority):
     """Korporasjon i Bibbi eller Noraf"""
 
-
-@dataclass
-class BibbiRecord(Authority):
-    """Autoritetspost i Bibbi"""
-    noraf_id: Optional[str] = None
-    newest_approved: Optional[datetime] = None
-    items: List[BibbiVare] = field(default_factory=list)
-
-
-@dataclass
-class BibbiPerson(BibbiRecord, Person):
-    """Person i Bibbi"""
+#
+# @dataclass
+# class BibbiRecord(Authority):
+#     """Autoritetspost i Bibbi"""
+#     noraf_id: Optional[str] = None
+#     # newest_approved: Optional[datetime] = None
+#     # items: List[BibbiVare] = field(default_factory=list)
 
 
 @dataclass
 class NorafPerson(Person):
     """Person i Noraf. Ikke nødvendigvis en komplett post, kan være en referanse"""
     pass
+
 
 @dataclass
 class NorafCorporation(Corporation):
@@ -72,9 +69,11 @@ class NorafCorporation(Corporation):
 
 IdentifierMap = Dict[str, List[str]]
 
+
 @dataclass
 class NorafRecord(Authority):
     """Fullstendig Noraf-post for person, korporasjon eller annet"""
+    vocabulary: str = 'noraf'
     other_ids: IdentifierMap = field(default_factory=dict)
 
 
@@ -83,9 +82,9 @@ class NorafPersonRecord(NorafPerson, NorafRecord):
     """Fullstendig Noraf-post for person"""
     pass
 
+
 class NorafCorporationRecord(NorafCorporation, NorafRecord):
     pass
-
 
 
 @dataclass
@@ -132,8 +131,8 @@ class Strategy:
     ]
     matcher: Callable[
         [
-            BibbiPerson,
-            BibbiVare,
+            # BibbiPerson,
+            # BibbiVare,
             Candidate,
             Strategy,
         ],

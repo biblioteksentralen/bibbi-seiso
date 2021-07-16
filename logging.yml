@@ -35,12 +35,12 @@ handlers:
         filename: ../seiso-storage/logs/bare.log
         encoding: utf8
 
-    promus_log_handler:
+    promus_update_log_handler:
         class: logging.handlers.TimedRotatingFileHandler
         when: midnight
         level: INFO
         formatter: file_format
-        filename: ../seiso-storage/logs/promus.log
+        filename: ../seiso-storage/logs/promus_updates.log
         encoding: utf8
 
     oai_log_handler:
@@ -62,9 +62,9 @@ loggers:
     seiso.common.bare_record:
         level: DEBUG
         handlers: [bare_log_handler]
-    seiso.services.promus:
+    promus_update_logger:
         level: DEBUG
-        handlers: [promus_log_handler]
+        handlers: [promus_update_log_handler]
     seiso.services.oai:
         level: INFO
         handlers: [oai_log_handler]

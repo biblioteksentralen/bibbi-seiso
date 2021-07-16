@@ -44,9 +44,11 @@ class Noraf:
     def __init__(self,
                  apikey: Optional[str] = None,
                  session: Optional[Session] = None,
-                 update_log: Optional[Path] = None):
+                 update_log: Optional[Path] = None,
+                 read_only_mode: bool = True):
         if update_log is None:
             update_log = log_path('noraf_updates.log')
+        self.read_only_mode = read_only_mode
         self.session = session or Session()
         self.session.headers.update({'User-Agent': 'BibbiSeiso/1.0 (Dan.Michael.Heggo@bibsent.no)'})
         if apikey is not None:
@@ -70,6 +72,10 @@ class Noraf:
         return NorafJsonRecord(response.content.decode('utf-8'))
 
     def put(self, record: NorafJsonRecord, reason: str) -> None:
+        if self.read_only_mode:
+            logger.info("Read only mode, will not update NORAF record")
+            record.dirty = False
+            return
         response = self.session.put(
             urljoin(self.api_base_url, record.id),
             json=record.as_dict()
@@ -83,6 +89,9 @@ class Noraf:
         record.dirty = False
 
     def post(self, record: NorafJsonRecord) -> NorafJsonRecord:
+        if self.read_only_mode:
+            logger.info("Read only mode, will not update NORAF record")
+            return record
         response = self.session.post(
             self.api_base_url,
             json=record.as_dict()

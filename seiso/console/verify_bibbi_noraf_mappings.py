@@ -11,12 +11,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from seiso.common.noraf_record import NorafJsonRecord
-from seiso.common.interfaces import BibbiPerson
 from seiso.common.logging import setup_logging
 from seiso.console.helpers import Report, ReportHeader, storage_path
 from seiso.services.noraf import Noraf, TYPE_PERSON, NorafRecordNotFound, NorafUpdateFailed
 from seiso.services.promus import Promus
-from seiso.services.promus.authorities import QueryFilter
+from seiso.services.promus.authorities import QueryFilter, BibbiPersonRecord, QueryFilters
 
 logger = setup_logging(level=logging.INFO)
 
@@ -42,9 +41,9 @@ class Processor:
             if cache_file.exists():
                 logger.info('Cache file exists, but is too old: %d', time.time() - cache_file.stat().st_mtime)
             logger.info('Fetching records from Promus')
-            bibbi_records = self.get_promus_records()
-            with cache_file.open('wb') as fp:
-                pickle.dump(bibbi_records, fp)
+            bibbi_records = list(self.get_promus_records())
+            #with cache_file.open('wb') as fp:
+            #    pickle.dump(bibbi_records, fp)
 
             # Store a copy of all names
             # with open('bibbi_names.json', 'w', encoding='utf-8') as fp:
@@ -60,8 +59,8 @@ class Processor:
         reports_path = storage_path('reports')
 
         n = 0
-        for bibbi_rec in bibbi_records.values():
-            noraf_id = bibbi_rec.noraf_id
+        for bibbi_rec in bibbi_records:
+            noraf_id = str(bibbi_rec.NB_ID)
             try:
                 noraf_rec = self.noraf.get(noraf_id)
                 self.check_link(bibbi_rec, noraf_rec)
@@ -108,11 +107,11 @@ class Processor:
         ])
 
     def get_promus_records(self):
-        return self.promus.authorities.person.list([
+        return self.promus.authorities.person.list(QueryFilters([
             QueryFilter('ReferenceNr IS NULL'),
             QueryFilter('Felles_ID = Bibsent_ID'),
-            QueryFilter('NB_ID IS NOT NULL'),
-        ], with_items=False)
+            QueryFilter("ISNULL(NB_ID, '') != ''"),
+        ]))
 
     def replace_promus_link(self, bibbi_rec, old_noraf_rec, new_noraf_rec_id):
         replacement_record = self.noraf.get(new_noraf_rec_id)
@@ -128,14 +127,16 @@ class Processor:
         time.sleep(10)
         return replacement_record
 
-    def check_link(self, bibbi_rec: BibbiPerson, noraf_rec: NorafJsonRecord):
-        logger.debug('%s "%s" <> %s "%s"', bibbi_rec.id, bibbi_rec.name, noraf_rec.id, noraf_rec.name)
+    def check_link(self, bibbi_rec: BibbiPersonRecord, noraf_rec: NorafJsonRecord):
+        logger.debug('%s "%s" <> %s "%s"', bibbi_rec.Bibsent_ID, bibbi_rec.label(), noraf_rec.id, noraf_rec.name)
         noraf_update_reasons = []
+
+        bibbi_person_rec = bibbi_rec.get_person_repr()
 
         # Check record type
         if noraf_rec.record_type != TYPE_PERSON:
             logger.error('%s - Invalid record type: %s', noraf_rec.id, noraf_rec.record_type)
-            self.error_report.add_person_row(bibbi_rec, [
+            self.error_report.add_person_row(bibbi_person_rec, [
                 '{NORAF}' + noraf_rec.id,
                 'Ugyldig posttype: ' + noraf_rec.record_type,
             ])
@@ -147,19 +148,19 @@ class Processor:
             if noraf_rec.replaced_by is not None and len(noraf_rec.replaced_by) > 1:
                 noraf_rec = self.replace_promus_link(bibbi_rec, noraf_rec, noraf_rec.replaced_by)
             else:
-                recs = list(self.noraf.sru_search('bib.identifierAuthority=%s' % bibbi_rec.id))
-                recs = [x for x in recs if bibbi_rec.id in x.other_ids.get('bibbi', [])]
+                recs = list(self.noraf.sru_search('bib.identifierAuthority=%s' % bibbi_person_rec.id))
+                recs = [x for x in recs if bibbi_person_rec.id in x.other_ids.get('bibbi', [])]
                 if len(recs) == 1:
                     noraf_rec = self.replace_promus_link(bibbi_rec, noraf_rec, recs[0].id)
                 elif len(recs) > 1:
-                    self.error_report.add_person_row(bibbi_rec, [
+                    self.error_report.add_person_row(bibbi_person_rec, [
                         '{NORAF}' + noraf_rec.id,
                         'Noraf-posten har blitt slettet. Fant mer enn én annen Noraf-post som lenker til Bibbi-posten.',
                     ])
                     time.sleep(8)
                     return
                 else:
-                    self.error_report.add_person_row(bibbi_rec, [
+                    self.error_report.add_person_row(bibbi_person_rec, [
                         '{NORAF}' + noraf_rec.id,
                         'Noraf-posten har blitt slettet uten at Bibbi-ID-en har blitt overført til en ny post.',
                     ])
@@ -168,7 +169,7 @@ class Processor:
 
         # 2. Ensure Bibbi identifier is set
         if len(noraf_rec.identifiers('bibbi')) == 0:
-            noraf_rec.set_identifiers('bibbi', [bibbi_rec.id])
+            noraf_rec.set_identifiers('bibbi', [bibbi_person_rec.id])
             noraf_update_reasons.append('La til Bibbi-lenker')
 
         # 3. Ensure nationality is set correctly
@@ -201,7 +202,7 @@ class Processor:
             try:
                 self.noraf.put(noraf_rec, reason='verify_bibbi_noraf: ' + ', '.join(noraf_update_reasons))
             except NorafUpdateFailed as err:
-                self.error_report.add_person_row(bibbi_rec, [
+                self.error_report.add_person_row(bibbi_person_rec, [
                     '{NORAF}' + noraf_rec.id,
                     'Den eksisterende Noraf-posten inneholder feil: ' + err.message
                 ])
@@ -209,7 +210,7 @@ class Processor:
 
             time.sleep(10)
 
-        self.overview_report.add_person_row(bibbi_rec, [
+        self.overview_report.add_person_row(bibbi_person_rec, [
             '{NORAF}' + noraf_rec.id,
             noraf_rec.name,
             ' || '.join(noraf_rec.alt_names),
@@ -217,7 +218,7 @@ class Processor:
             noraf_rec.modified.strftime('%Y-%m-%d'),
             noraf_rec.status,
             noraf_rec.origin,
-            ' || '.join([x for x in noraf_rec.identifiers('bibbi') if x != bibbi_rec.id]),
+            ' || '.join([x for x in noraf_rec.identifiers('bibbi') if x != bibbi_person_rec.id]),
         ])
 
         # time.sleep(1)
@@ -227,6 +228,7 @@ def main():
     parser = argparse.ArgumentParser(description='Verify all Bibbi-Noraf mappings')
 
     parser.add_argument('-v', '--verbose', action='store_true', help='More verbose output.')
+    parser.add_argument('--dry-run', action='store_true', help='Dry run mode.')
 
     args = parser.parse_args()
 
@@ -238,8 +240,8 @@ def main():
     noraf_key = os.getenv('BARE_KEY')
     if noraf_key is None:
         logger.warning('No API key set')
-    noraf = Noraf(noraf_key)
+    noraf = Noraf(noraf_key, read_only_mode=args.dry_run)
 
-    promus = Promus()
+    promus = Promus(read_only_mode=args.dry_run)
 
     Processor(noraf, promus).run()

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 TYPE_PERSON = 'PERSON'
 TYPE_CORPORATION = 'CORPORATION'
 
+
 class FieldNotFound(IndexError):
     pass
 
@@ -107,6 +108,7 @@ record_types: Dict = {
         'tag': '10',
     }
 }
+
 
 class NorafJsonRecord:
     """

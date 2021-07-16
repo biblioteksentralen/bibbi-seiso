@@ -2,6 +2,7 @@ stages:
   - test
 
 test:
+  image: ubuntu:20
   stage: test
   script:
   - apt-get update -qy

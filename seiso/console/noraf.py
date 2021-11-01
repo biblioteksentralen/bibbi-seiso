@@ -7,6 +7,7 @@ from pathlib import Path
 
 import questionary
 from dotenv import load_dotenv
+from seiso.console.verify_noraf_bibbi_mappings import SimpleBibbiRecord
 
 from seiso.common.noraf_record import NorafJsonRecord
 from seiso.common.logging import setup_logging
@@ -40,15 +41,22 @@ def post_action(noraf: Noraf, args: argparse.Namespace) -> None:
     logger.info('https://bsaut.toolforge.org/show/%s', record.id)
 
 
+def delete_action(noraf: Noraf, args: argparse.Namespace) -> None:
+    record = noraf.get(args.record_id)
+    record = noraf.delete(record)
+    logger.info('https://bsaut.toolforge.org/show/%s', record.id)
+
+
 def get_action(noraf: Noraf, args: argparse.Namespace) -> None:
     record = noraf.get(args.record_id)
     json.dump(record.as_dict(), args.dest_file, indent=2)
 
 
 def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
-    promus = Promus()
+    promus = Promus(read_only_mode=args.dry_run)
+    logger.debug('Connected to Promus')
     noraf_rec = noraf.get(args.noraf_id)
-    bibbi_rec = promus.authorities.person.get(args.bibbi_id)
+    bibbi_rec = SimpleBibbiRecord.create(promus.authorities.first(Bibsent_ID=args.bibbi_id))
 
     logger.info('[Bibbi] %s %s (%s)', bibbi_rec.name, bibbi_rec.dates or '', bibbi_rec.id)
     logger.info('[Noraf] %s %s (%s)', noraf_rec.name, noraf_rec.dates or '', noraf_rec.id)
@@ -56,7 +64,7 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
     if bibbi_rec.noraf_id == noraf_rec.id:
         logger.info('Bibbi record alredy linked to Noraf record')
     else:
-        promus.authorities.person.link_to_noraf(bibbi_rec, noraf_rec, False, reason='Manuell lenking')
+        promus.authorities.person.link_to_noraf(bibbi_rec.original, noraf_rec, 'Manuell lenking')
 
     bibbi_ids = noraf_rec.identifiers('bibbi')
     if len(bibbi_ids) == 0:
@@ -82,10 +90,6 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
         logger.info('Noraf-posten er allerede lenket til Bibbi-posten')
 
 
-def harvest_action(noraf: Noraf, args: argparse.Namespace) -> None:
-    noraf.oai_harvest(args.destination_dir)
-
-
 def main():
     """
     Scriptet oppdaterer personposter i Bibbi (via SQL) og Noraf (via REST-API) basert på inputt
@@ -93,10 +97,9 @@ def main():
     """
     load_dotenv()
 
-    default_destination_dir = storage_path('noraf-harvest', create=False)
-
     parser = argparse.ArgumentParser(description='Operations on Noraf records')
     parser.add_argument('-v', '--verbose', action='store_true', help='More verbose output.')
+    parser.add_argument('--dry-run', action='store_true', help='Dry run mode.')
 
     subparsers = parser.add_subparsers(dest='cmd')
     subparsers.required = True
@@ -127,19 +130,16 @@ def main():
                              help='input file - default is stdin')
     parser_post.set_defaults(func=post_action)
 
+    parser_delete = subparsers.add_parser('delete', help='Delete a single record from Noraf')
+    parser_delete.add_argument('record_id',
+                               help='Noraf record ID')
+    parser_delete.set_defaults(func=delete_action)
+
     parser_link = subparsers.add_parser('link', help='Validate and create/update a Bibbi-Noraf-link')
     parser_link.add_argument('--replace', help='Remove existing Bibbi IDs first', action='store_true')
     parser_link.add_argument('bibbi_id', help='Bibbi record ID')
     parser_link.add_argument('noraf_id', help='Noraf record ID')
     parser_link.set_defaults(func=link_action)
-
-    parser_harvest = subparsers.add_parser('harvest', help='Perform a full or incremental harvest')
-    parser_harvest.add_argument('destination_dir',
-                                nargs='?',
-                                action=WritableDir,
-                                default=default_destination_dir,
-                                help='destination dir for the xml files')
-    parser_harvest.set_defaults(func=harvest_action)
 
     args = parser.parse_args()
 
@@ -151,5 +151,5 @@ def main():
     else:
         logger.setLevel(logging.INFO)
 
-    noraf = Noraf(os.getenv('BARE_KEY'))
+    noraf = Noraf(os.getenv('BARE_KEY'), read_only_mode=args.dry_run)
     args.func(noraf, args)

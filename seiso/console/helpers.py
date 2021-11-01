@@ -43,26 +43,10 @@ class Report:
         self.data = []
 
     def add_row(self, columns):
-        self.data.append(columns)
-
-    def add_person_row(self, person_rec: Person, columns: List[str]):
-        prefix = ''
-        # if isinstance(person_rec, NorafPerson) or isinstance(person_rec, NorafJsonRecord):
-        #     prefix = '{NORAF}'
-        # elif isinstance(person_rec, BibbiPerson):
-        #     prefix = '{BIBBI}'
-        columns = [
-            prefix + person_rec.id,
-            person_rec.name,
-            ' || '.join(person_rec.alt_names),
-            person_rec.dates or '',
-            person_rec.modified.strftime('%Y-%m-%d') if person_rec.modified else '',
-        ] + columns
-
         for col in columns:
             if not isinstance(col, str):
                 log.warning('Warning: Column not of type str: %s', str(columns))
-        self.add_row(columns)
+        self.data.append(columns)
 
     def save_json(self, filename: Path):
         with filename.open('w', encoding='utf-8') as fp:

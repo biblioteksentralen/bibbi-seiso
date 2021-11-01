@@ -74,7 +74,7 @@ class MsSql:
             cursor.execute(query, params)
             rowcount = cursor.rowcount
             if self.read_only_mode:
-                update_logger.info('TEST: Executed query: %s - Affected rows: %d', log_entry, rowcount)
+                logger.info('Read only mode, so rolling back query. Rows that would have been affected: %d', rowcount)
                 self.rollback()
             else:
                 update_logger.info('Executed query: %s - Affected rows: %d', log_entry, rowcount)

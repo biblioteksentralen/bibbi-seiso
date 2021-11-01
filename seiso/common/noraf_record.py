@@ -354,4 +354,17 @@ class NorafXmlRecord:
                     xpath=True
                 ),
             )
+        if main_tag := rec.first(':datafield[@tag="110"]'):
+            return NorafCorporationRecord(
+                id=rec.text(':controlfield[@tag="001"]'),
+                created=datetime.strptime(rec.text(':controlfield[@tag="008"]')[:6], '%y%m%d').date(),
+                modified=datetime.strptime(rec.text(':controlfield[@tag="005"]')[:8], '%Y%m%d').date(),
+                name=main_tag.text(':subfield[@code="a"]'),
+                dates=main_tag.text_or_none(':subfield[@code="d"]'),
+                other_ids=cls._parse_ids(rec),
+                alt_names=rec.all_text(
+                    ':datafield[@tag="400"]/:subfield[@code="a"]',
+                    xpath=True
+                ),
+            )
         return None

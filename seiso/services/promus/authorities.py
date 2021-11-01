@@ -30,7 +30,7 @@ class Query:
 @dataclass
 class QueryFilter:
     stmt: str
-    param: Optional[str] = None
+    param: Optional[Union[str, list]] = None
 
 
 @dataclass
@@ -46,7 +46,12 @@ class QueryFilters:
         return ''
 
     def get_query_params(self):
-        return [filt.param for filt in self.filters if filt.param is not None]
+        for _filter in self.filters:
+            if isinstance(_filter.param, str):
+                yield _filter.param
+            if isinstance(_filter.param, list):
+                for _param in _filter.param:
+                    yield _param
 
 
 @dataclass
@@ -78,7 +83,7 @@ class PromusRecord:
         pass
 
     def update(self, **kwargs):
-        return self.collection.update(self, **kwargs)
+        return self.collection.update_record(self, **kwargs)
 
 
 @dataclass
@@ -106,6 +111,7 @@ class BibbiAuthorityRecord(PromusRecord):
     Created: datetime = None
     LastChanged: datetime = None
     Approved: bool = True
+    _DisplayValue: str = None
 
     # bibbi_id: str = None
     # vocabulary: str = 'bibbi'
@@ -118,9 +124,11 @@ class BibbiAuthorityRecord(PromusRecord):
     def get_references(self):
         return self._references
 
-    @abstractmethod
     def label(self):
-        pass
+        return self._DisplayValue
+
+    def __str__(self):
+        return f'id="{self.Bibsent_ID}" label="{self.label()}"'
 
     def get_items_query(self, marc_fields: Optional[Tuple[str]] = None) -> Query:
         """Henter bibliografiske poster som denne autoriteten er brukt på, evt. avgrenset på relasjonstype.
@@ -235,10 +243,9 @@ class BibbiPersonRecord(BibbiAuthorityRecord):
     KlasseSpraak_Tid_Approved: Optional[str] = None
     KlasseTid: Optional[str] = None
     KlasseComic: Optional[str] = None
-    _DisplayValue: Optional[str] = None
 
-    def label(self):
-        return self.PersonName  # Todo: Add more stuff
+    #def label(self):
+    #    return self.PersonName  # Todo: Add more stuff
 
     def get_person_repr(self) -> Person:
         return Person(
@@ -257,10 +264,99 @@ class BibbiPersonRecord(BibbiAuthorityRecord):
 
 @dataclass
 class BibbiCorporationRecord(BibbiAuthorityRecord):
-    """Person i Bibbi"""
+    """Korporasjon i Bibbi"""
+    CorpID: Optional[str] = None
+    CorpName: Optional[str] = None
+    CorpName_N: Optional[str] = None
+    CorpDep: Optional[str] = None
+    CorpPlace: Optional[str] = None
+    CorpDate: Optional[str] = None
+    CorpFunc: Optional[str] = None
+    CorpNr: Optional[str] = None
+    CorpDetail: Optional[str] = None
+    CorpDetail_N: Optional[str] = None
+    SortingTitle: Optional[str] = None
+    TopicTitle: Optional[str] = None
+    SortingSubTitle: Optional[str] = None
+    UnderTopic: Optional[str] = None
+    UnderTopic_N: Optional[str] = None
+    Qualifier: Optional[str] = None
+    Qualifier_N: Optional[str] = None
+    DeweyNr: Optional[str] = None
+    TopicDetail: Optional[str] = None
+    TopicLang: Optional[str] = None
+    MusicNr: Optional[str] = None
+    MusicCast: Optional[str] = None
+    Arrangment: Optional[str] = None
+    ToneArt: Optional[str] = None
+    FieldCode: Optional[str] = None
+    Security_ID: Optional[str] = None
+    UserID: Optional[str] = None
+    ApproveDate: Optional[str] = None
+    ApprovedUserID: Optional[str] = None
+    BibbiNr: Optional[str] = None
+    NotInUse: Optional[str] = None
+    Reference: Optional[str] = None
+    ReferenceNr: Optional[str] = None
+    Source: Optional[str] = None
+    bibbireferencenr: Optional[str] = None
+    GeoUnderTopic: Optional[str] = None
+    GeoUnderTopic_N: Optional[str] = None
+    WebDeweyNr: Optional[str] = None
+    WebDeweyApproved: Optional[str] = None
+    WebDeweyKun: Optional[str] = None
+    NB_ID: Optional[str] = None
+    NB_Origin: Optional[str] = None
+    Felles_ID: Optional[str] = None
+    MainPerson: Optional[str] = None
+    Origin: Optional[str] = None
+    KatStatus: Optional[str] = None
+    Comment: Optional[str] = None
+    Lov: Optional[str] = None
+    Handle_ID: Optional[str] = None
 
-    def label(self):
-        raise NotImplementedError()
+
+@dataclass
+class BibbiConferenceRecord(BibbiAuthorityRecord):
+    """Arrangement/hendelse/møte/konferanse i Bibbi"""
+    ConfID: Optional[str] = None
+    ConfName: Optional[str] = None
+    ConfName_N: Optional[str] = None
+    ConfPlace: Optional[str] = None
+    ConfDate: Optional[str] = None
+    ConfNr: Optional[str] = None
+    ConfDetail: Optional[str] = None
+    SortingTitle: Optional[str] = None
+    TopicTitle: Optional[str] = None
+    SortingSubTitle: Optional[str] = None
+    UnderTopic: Optional[str] = None
+    UnderTopic_N: Optional[str] = None
+    Qualifier: Optional[str] = None
+    DeweyNr: Optional[str] = None
+    TopicDetail: Optional[str] = None
+    TopicLang: Optional[str] = None
+    FieldCode: Optional[str] = None
+    Security_ID: Optional[str] = None
+    UserID: Optional[str] = None
+    ApproveDate: Optional[str] = None
+    ApprovedUserID: Optional[str] = None
+    BibbiNr: Optional[str] = None
+    NotInUse: Optional[str] = None
+    Reference: Optional[str] = None
+    ReferenceNr: Optional[str] = None
+    Source: Optional[str] = None
+    bibbireferencenr: Optional[str] = None
+    WebDeweyNr: Optional[str] = None
+    WebDeweyApproved: Optional[str] = None
+    WebDeweyKun: Optional[str] = None
+    NB_ID: Optional[str] = None
+    NB_Origin: Optional[str] = None
+    Felles_ID: Optional[str] = None
+    MainPerson: Optional[str] = None
+    Origin: Optional[str] = None
+    KatStatus: Optional[str] = None
+    Comment: Optional[str] = None
+    Handle_ID: Optional[str] = None
 
 
 ColumnDataTypes = List[Union[str, int, None]]
@@ -305,6 +401,7 @@ class PromusCollection:
         )
         query_params = [*filters.get_query_params()]
         # print(query, query_params)
+        logger.debug(f'Promus query: "{query}" with params: {repr(query_params)}')
         for row in self._conn.select(query, query_params, normalize=False):
             yield self._record_factory(row)
 
@@ -318,7 +415,7 @@ class PromusCollection:
         if self._conn.update(query, params) == 0:
             raise Exception('No rows affected by the INSERT query: %s' % query)
 
-    def update(self, record: PromusRecord, **kwargs) -> List[Change]:
+    def update_record(self, record: PromusRecord, **kwargs) -> List[Change]:
         if not isinstance(record, self.record_type):
             raise ValueError('record must be instance of ' + str(self.record_type))
 
@@ -333,25 +430,29 @@ class PromusCollection:
                         continue  # ignore round-off errors
                 changes.append(Change(column=key, new_value=value, old_value=getattr(record, key), record=record))
 
-        if len(changes) > 0:
-            if self.last_changed_column is not None:
-                changes.append(Change(column=self.last_changed_column,
-                                      new_value=datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:23],  # milliseconds with 3 digits,
-                                      old_value=getattr(record, self.last_changed_column),
-                                      record=record))
-
-            changes_query_str = ', '.join(['%s=?' % escape_column_name(change.column) for change in changes])
-            changes_params = [change.new_value for change in changes]
-
-            query = f"UPDATE {self.table_name} SET {changes_query_str} WHERE \"{self.primary_key_column}\"=?"
-            params = changes_params + [int(record.primary_key)]
-            if self._conn.update(query, params) == 0:
-                raise Exception('No rows affected by the UPDATE query: %s' % query)
-
-            for key, value in kwargs.items():
                 setattr(record, key, value)
 
+        self.generic_update(self.primary_key_column,
+                            int(record.primary_key),
+                            {change.column: change.new_value for change in changes})
+
         return changes
+
+    def generic_update(self, where_key: str, where_value: Union[str, int], updates: dict):
+
+        if len(updates.items()) > 0:
+
+            if self.last_changed_column is not None:
+                updates[self.last_changed_column] = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:23]  # milliseconds with 3 digits,
+
+            set_stmt = ', '.join(['%s=?' % escape_column_name(key) for key in updates.keys()])
+            set_params = list(updates.values())
+
+            query = f"UPDATE {self.table_name} SET {set_stmt} WHERE {escape_column_name(where_key)}=?"
+            params = set_params + [where_value]
+
+            if self._conn.update(query, params) == 0:
+                raise Exception('No rows affected by the UPDATE query: %s' % query)
 
     def all(self, **kwargs) -> Generator[PromusRecord, None, None]:
         return self.list(filters=QueryFilters([
@@ -370,9 +471,9 @@ class PromusCollection:
 @dataclass
 class Change:
     column: str
-    new_value: Optional[str]
-    old_value: Optional[str]
-    record: PromusRecord
+    new_value: Optional[str] = None
+    old_value: Optional[str] = None
+    record: Optional[PromusRecord] = None
 
 
 @dataclass
@@ -406,6 +507,38 @@ class BibbiAuthorityCollection(PromusCollection):
                 yield record
 
 
+class LinkedToNoraf(PromusCollection):
+
+    def link_to_noraf(self, bibbi_record: BibbiAuthorityRecord, noraf_json_rec: NorafJsonRecord, reason: str):
+        logger.info('Lenker Bibbi:%s (%s) til Noraf:%s (%s). Årsak: %s',
+                    bibbi_record.Bibsent_ID,
+                    bibbi_record.label(),
+                    noraf_json_rec.id,
+                    noraf_json_rec.name,
+                    reason)
+
+        updates = {
+            'NB_ID': int(noraf_json_rec.id),
+            'Origin': noraf_json_rec.origin,
+            'KatStatus': noraf_json_rec.status,
+            'Handle_ID': noraf_json_rec.identifiers('handle')[0].split('/', 3)[-1],
+        }
+        if isinstance(bibbi_record, BibbiPersonRecord):
+            updates['NB_PersonNation'] = noraf_json_rec.nationality
+
+            if noraf_json_rec.dates is not None and bibbi_record.PersonYear is None:
+                updates['PersonYear'] = noraf_json_rec.dates
+
+        # Merk: Vi bruker Felles_ID fordi vi må oppdatere biautoritetene også.
+        # Det er egentlig litt teit at vi dupliserer informasjonen slik, men det er slik det gjøres i Promus,
+        # så vi må gjøre det på samme måte.
+        self.generic_update(
+            where_key='Felles_ID',
+            where_value=int(bibbi_record.Bibsent_ID),
+            updates=updates
+        )
+
+
 @dataclass
 class Country(PromusRecord):
     CountryShortName: str = None
@@ -432,32 +565,30 @@ class CountryCollection(PromusCollection):
 
 
 @dataclass
-class PersonCollection(BibbiAuthorityCollection):
+class PersonCollection(BibbiAuthorityCollection, LinkedToNoraf):
     table_name: str = 'AuthorityPerson'
     record_type: type = BibbiPersonRecord
     primary_key_column: str = 'PersonId'
     marc_fields: Set[int] = field(default_factory=lambda: {100, 600, 700})
 
-    def _record_factory(self, row):
-        return super()._record_factory(row)
-
     def list(self, *args, **kwargs) -> Generator[BibbiPersonRecord, None, None]:
         return super().list(*args, **kwargs)
 
-    def link_to_noraf(self, bibbi_person: BibbiPersonRecord, noraf_json_rec: NorafJsonRecord, dry_run: bool, reason: str):
-        self.update(bibbi_person,
-                    NB_ID=int(noraf_json_rec.id),
-                    NB_PersonNation=noraf_json_rec.nationality,
-                    Origin=noraf_json_rec.origin,
-                    KatStatus=noraf_json_rec.status,
-                    Handle_ID=noraf_json_rec.identifiers('handle')[0].split('/', 3)[-1]
-                    )
-        logger.info('Lenker Bibbi:%s (%s) til Noraf:%s (%s). Årsak: %s',
-                    bibbi_person.Bibsent_ID,
-                    bibbi_person.label(),
-                    noraf_json_rec.id,
-                    noraf_json_rec.name,
-                    reason)
+
+@dataclass
+class CorporationCollection(BibbiAuthorityCollection, LinkedToNoraf):
+    table_name: str = 'AuthorityCorp'
+    record_type: type = BibbiCorporationRecord
+    primary_key_column: str = 'CorpID'
+    marc_fields: Set[int] = field(default_factory=lambda: {110, 610, 710})
+
+
+@dataclass
+class ConferenceCollection(BibbiAuthorityCollection, LinkedToNoraf):
+    table_name: str = 'AuthorityConf'
+    record_type: type = BibbiConferenceRecord
+    primary_key_column: str = 'ConfID'
+    marc_fields: Set[int] = field(default_factory=lambda: {111, 611, 711})
 
 
 @dataclass
@@ -475,14 +606,6 @@ class TopicCollection(BibbiAuthorityCollection):
     record_type: type = PromusRecord  # @TODO
     primary_key_column: str = 'AuthID'
     marc_fields: Set[int] = field(default_factory=lambda: {650})
-
-
-@dataclass
-class CorporationCollection(BibbiAuthorityCollection):
-    table_name: str = 'AuthorityCorp'
-    record_type: type = BibbiCorporationRecord
-    primary_key_column: str = 'CorpID'
-    marc_fields: Set[int] = field(default_factory=lambda: {111, 611, 711})
 
 
 @dataclass
@@ -513,22 +636,24 @@ class AuthorityCollections:
 
         self.person = PersonCollection(promus)
         self.corporation = CorporationCollection(promus)
-        # self.event = ConferenceTable(promus)
+        self.conference = ConferenceCollection(promus)
         self.topic = TopicCollection(promus)
         self.genre = GenreCollection(promus)
         self.geographic = GeographicCollection(promus)
         self.curriculum = CurriculumCollection(promus)
 
+        # Ting med Bibsent_ID?
         self._all = [
             self.person,
-            self.curriculum,
-            # self.corporation,
-            # self.conference,
+            # self.curriculum,
+            self.corporation,
+            self.conference,
             #self.topic,
             #self.genre,
             #self.geographic,
         ]
 
+    # @TODO: Refactor: This method doesn't really work. We cannot assume that there are common fields for all authority tables, must make a selection first.
     def first(self, **kwargs) -> Optional[BibbiAuthorityRecord]:
         for table in self._all:
             if record := table.first(**kwargs):
@@ -539,6 +664,9 @@ class AuthorityCollections:
         # TODO
         pass
 
+    # def has_field(self, field_name):
+    #     if field_name == 'Bibsent_ID':
+    #         return AuthorityCollections([x for x in self._all if isinstance(x, PersonCollection, CorporationCollection, ConferenceCollection)])
 
 @dataclass
 class Item:
@@ -557,7 +685,7 @@ class ItemCollection:
         self._conn = promus.connection()
         table_name = 'Item'
 
-    def by_authority(self, authority: Authority) -> Generator[Item, None, None]:
+    def by_authority(self, authority: PromusRecord) -> Generator[Item, None, None]:
         query = """
             SELECT
                item.Bibbinr AS id,

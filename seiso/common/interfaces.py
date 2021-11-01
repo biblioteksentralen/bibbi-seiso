@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import date
 from typing import List, Optional, Union, Callable, Generator, Dict
 
 from requests import Session
@@ -45,6 +45,7 @@ class Person(Authority):
 @dataclass
 class Corporation(Authority):
     """Korporasjon i Bibbi eller Noraf"""
+    dates: Optional[str] = None
 
 #
 # @dataclass
@@ -83,6 +84,7 @@ class NorafPersonRecord(NorafPerson, NorafRecord):
     pass
 
 
+@dataclass
 class NorafCorporationRecord(NorafCorporation, NorafRecord):
     pass
 

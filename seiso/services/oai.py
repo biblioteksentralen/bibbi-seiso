@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from datetime import datetime
+from hashlib import md5
 from json import JSONDecodeError
 from time import time
 from typing import Optional
@@ -17,6 +19,15 @@ from seiso.common.xml import XmlNode
 logger = logging.getLogger(__name__)
 
 TYPE_PERSON = 'PERSON'
+
+
+@dataclass
+class OaiPmhSettings:
+    endpoint: str
+    metadata_prefix: str
+    metadata_schema: str
+    oai_set: str
+    storage_dir: Path
 
 
 @dataclass
@@ -60,12 +71,12 @@ class HarvestSummary:
 
 class OaiPmh:
 
-    def __init__(self, endpoint_url: str):
-        self.endpoint_url = endpoint_url
+    def __init__(self, settings: OaiPmhSettings):
+        self.settings = settings
 
-    def harvest(self, storage_dir: Path, callback=None, **kwargs):
+    def harvest(self, callback=None, **kwargs):
 
-        harvest_summary_file = storage_dir.joinpath('summary.json')
+        harvest_summary_file = self.settings.storage_dir.joinpath('summary.json')
         last_harvest = HarvestSummary.load(harvest_summary_file)
 
         if last_harvest is not None and last_harvest.resumption_token is not None:
@@ -84,21 +95,29 @@ class OaiPmh:
                 logger.info('Starting full harvest')
                 current_harvest = HarvestSummary(started=datetime.now(), full=True)
 
-        harvest_options = {
-            'metadataPrefix': 'marcxchange',
-            'set': 'bibsys_authorities',
-            'resumptionToken': current_harvest.resumption_token,
-            **kwargs
-        }
+        if current_harvest.resumption_token is not None:
+            harvest_options = {
+                'resumptionToken': current_harvest.resumption_token,
+            }
+        else:
+            harvest_options = {
+                'metadataPrefix': self.settings.metadata_prefix,
+                'set': self.settings.oai_set,
+                **kwargs
+            }
 
-        sickle = Sickle(self.endpoint_url, max_retries=10, timeout=60)
+        print(self.settings.endpoint, harvest_options)
+
+        sickle = Sickle(self.settings.endpoint, max_retries=10, timeout=60)
         records = sickle.ListRecords(**harvest_options)
 
         t0 = time()
         for record in records:
             ident = record.header.identifier
             record_id = ident.split(':')[-1]
-            file_dir = storage_dir.joinpath(record_id[:2])
+            # We use md5 just to get a slightly more uniform distribution,
+            # since the prefixes and suffixes are often very non-uniform.
+            file_dir = self.settings.storage_dir.joinpath(md5(record_id.encode('utf-8')).hexdigest()[:2])
             filename = file_dir.joinpath('%s.xml' % record_id)
 
             if record.deleted:
@@ -109,17 +128,21 @@ class OaiPmh:
             else:
                 doc = XmlNode(
                     etree.fromstring(record.raw),
-                    'info:lc/xmlns/marcxchange-v1',
-                    {'oai': 'http://www.openarchives.org/OAI/2.0/'}
+                    self.settings.metadata_schema,
+                    {'oai': 'http://www.openarchives.org/OAI/2.0/', 'schema': self.settings.metadata_schema}
                 )
 
-                marc = doc.first('oai:metadata/:record', True)
+                marc = doc.first('oai:metadata/schema:record', True)
 
                 if callback is not None:
                     callback(marc)
 
                 if len(record_id) > 2:
                     file_dir.mkdir(exist_ok=True)
+
+                    if marc is None:
+                        print(doc.serialize())
+                        sys.exit(1)
                     with filename.open('wb') as fp:
                         fp.write(marc.serialize())
                     logger.debug('Stored record %s', record_id)

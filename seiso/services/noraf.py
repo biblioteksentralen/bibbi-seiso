@@ -22,6 +22,8 @@ from seiso.common.interfaces import NorafRecord
 logger = logging.getLogger(__name__)
 
 TYPE_PERSON = 'PERSON'
+TYPE_CORPORATION = 'CORPORATION'
+TYPE_CONFERENCE = 'CONFERENCE'
 
 
 class NorafRecordNotFound(IOError):
@@ -106,6 +108,23 @@ class Noraf:
         logger.info('Posted new record to Noraf: %s', record.id)
         return record
 
+    def delete(self, record: NorafJsonRecord) -> NorafJsonRecord:
+        if self.read_only_mode:
+            logger.info("Read only mode, will not delete NORAF record")
+            return record
+        response = self.session.delete(
+            urljoin(self.api_base_url, record.id)
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            logger.error('Failed to delete Noraf record %s', err.response.text)
+            raise
+
+        record = NorafJsonRecord(response.text)
+        logger.info('Deleted Noraf record: %s', record.id)
+        return record
+
     def log_update(self, record, reason: str) -> None:
         line = '[%s] Oppdaterte %s - Årsak: %s' % (
             datetime.now().isoformat(),
@@ -154,12 +173,3 @@ class Noraf:
                 yield parsed_rec
             else:
                 logger.error('%s - Record type not supported yet', rec.text(':controlfield[@tag="001"]'))
-
-    def oai_harvest(self, storage_dir: Path, **kwargs):
-        logger.info('Working dir: %s', str(storage_dir.absolute()))
-        oai = OaiPmh(self.oai_pmh_endpoint)
-
-        try:
-            oai.harvest(storage_dir, **kwargs)
-        except NoRecordsMatch:
-            logger.info('No records to harvest')

@@ -47,6 +47,7 @@ pycodestyle = "^2.6.0"
 pyflakes = "^2.2.0"
 
 [tool.poetry.scripts]
+oai = "seiso.console.oai:main"
 noraf = "seiso.console.noraf:main"
 match_persons = "seiso.console.match_persons:main"
 update_persons = "seiso.console.update_persons:main"

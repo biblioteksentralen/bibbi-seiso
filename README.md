@@ -92,10 +92,12 @@ For å manuelt lenke en Bibbi-post til en Noraf-post:
 
     poetry run noraf link {bibbi_id} {noraf_id}
 
+OBS: Bruk Bibbi-ID som argument, den konverteres til URI automatisk.
+
 Dette vil 
 
 1. Oppdatere Promus med NORAF-ID-en, samt annen informasjon fra Noraf (status, kjønn, landskode, etc.)
-2. Oppdatere Noraf med Bibbi-ID-en, hvis den ikke allerede er lagt inn.
+2. Oppdatere Noraf med Bibbi-URI-en, hvis den ikke allerede er lagt inn.
 
 ### Verifisering og fiksing av mappinger
 

@@ -103,7 +103,7 @@ def main():
         )
     elif args.source == 'noraf':
         settings = OaiPmhSettings(
-            endpoint='http://eu01.alma.exlibrisgroup.com/view/oai/47BIBSYS_NETWORK/request',
+            endpoint='https://authority.bibsys.no/authority/rest/oai',
             metadata_prefix="marcxchange",
             metadata_schema="info:lc/xmlns/marcxchange-v1",
             oai_set="bibsys_authorities",

@@ -44,6 +44,11 @@ for mapping in mappings:
         logger.warning('[%s] Noraf record does not exist, mapping from Bibbi:%s "%s" must be checked manually',
                        mapping.noraf_id, mapping.bibbi_id, mapping.bibbi_name)
         continue
+    if noraf_rec.deleted:
+        logger.warning('[%s] Noraf record is marked as deleted, mapping from Bibbi:%s "%s" must be checked manually',
+                       mapping.noraf_id, mapping.bibbi_id, mapping.bibbi_name)
+        continue
+
     bibbi_id = mapping.bibbi_id
     bibbi_uri = bibbi_uri_prefix + mapping.bibbi_id
     noraf_bibbi_ids = noraf_rec.identifiers('bibbi')
@@ -60,11 +65,11 @@ for mapping in mappings:
     elif len(noraf_bibbi_ids) == 1 and noraf_bibbi_ids[0] == bibbi_uri:
         pass  # Ok, already updated
     elif len(noraf_bibbi_ids) == 1:
-        logger.warning('[%s] Skipped Noraf record which is not mapped to the expected Bibbi record (%s %s)',
+        logger.warning('[%s] Skipped because: not mapped to the expected Bibbi record (%s %s)',
                        noraf_rec.id, mapping.bibbi_id, mapping.bibbi_name)
         skipped.append(mapping.noraf_id)
     elif len(noraf_bibbi_ids) > 1:
-        logger.warning('[%s] Skipped Noraf record which is mapped to more than one Bibbi record', noraf_rec.id)
+        logger.warning('[%s] Skipped because: mapped to more than one Bibbi record', noraf_rec.id)
         skipped.append(mapping.noraf_id)
 
 logger.info('Added: %d Changed: %d Skipped: %d', n_added, n_changed, len(skipped))

@@ -57,6 +57,7 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
     logger.debug('Connected to Promus')
     noraf_rec = noraf.get(args.noraf_id)
     bibbi_rec = SimpleBibbiRecord.create(promus.authorities.first(Bibsent_ID=args.bibbi_id))
+    bibbi_uri = bibbi_rec.id
 
     logger.info('[Bibbi] %s %s (%s)', bibbi_rec.name, bibbi_rec.dates or '', bibbi_rec.id)
     logger.info('[Noraf] %s %s (%s)', noraf_rec.name, noraf_rec.dates or '', noraf_rec.id)
@@ -68,21 +69,21 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
 
     bibbi_ids = noraf_rec.identifiers('bibbi')
     if len(bibbi_ids) == 0:
-        noraf_rec.set_identifiers('bibbi', [bibbi_rec.id])
+        noraf_rec.set_identifiers('bibbi', [bibbi_uri])
         noraf.put(noraf_rec, reason='Manuell lenking til Bibbi')
         logger.info('Added Bibbi identifier to Noraf record %s', noraf_rec.id)
 
-    elif bibbi_rec.id not in bibbi_ids:
+    elif bibbi_uri not in bibbi_ids:
         logger.warning('Noraf-posten er allerede lenket til en eller flere andre Bibbi-poster: %s',
                        ', '.join(bibbi_ids))
         if args.replace:
             logger.warning('Fjerner eksisterende lenker')
-            noraf_rec.set_identifiers('bibbi', [bibbi_rec.id])
+            noraf_rec.set_identifiers('bibbi', [bibbi_uri])
             noraf.put(noraf_rec, reason='Manuell lenking til Bibbi (erstattet eksisterende)')
             logger.info('Replaced Bibbi identifiers on Noraf record %s', noraf_rec.id)
 
-        elif questionary.confirm('Vil du legge til en lenke til Bibbi-posten %s også?' % bibbi_rec.id).ask():
-            noraf_rec.add_identifier('bibbi', bibbi_rec.id)
+        elif questionary.confirm('Vil du legge til en lenke til Bibbi-posten %s også?' % bibbi_uri).ask():
+            noraf_rec.add_identifier('bibbi', bibbi_uri)
             noraf.put(noraf_rec, reason='Manuell lenking til Bibbi (erstattet eksisterende)')
             logger.info('Added Bibbi identifier to Noraf record %s', noraf_rec.id)
 

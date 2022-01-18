@@ -24,7 +24,7 @@ handlers:
         when: midnight
         level: DEBUG
         formatter: file_format
-        filename: ../seiso-storage/logs/debug.log
+        filename: {{log-path}}/debug.log
         encoding: utf8
 
     bare_log_handler:
@@ -32,7 +32,7 @@ handlers:
         when: midnight
         level: INFO
         formatter: file_format
-        filename: ../seiso-storage/logs/bare.log
+        filename: {{log-path}}/bare.log
         encoding: utf8
 
     promus_update_log_handler:
@@ -40,7 +40,7 @@ handlers:
         when: midnight
         level: INFO
         formatter: file_format
-        filename: ../seiso-storage/logs/promus_updates.log
+        filename: {{log-path}}/promus_updates.log
         encoding: utf8
 
     oai_log_handler:
@@ -48,7 +48,7 @@ handlers:
         when: W0
         level: INFO
         formatter: file_format
-        filename: ../seiso-storage/logs/oai.log
+        filename: {{log-path}}/oai.log
         encoding: utf8
 
 root:

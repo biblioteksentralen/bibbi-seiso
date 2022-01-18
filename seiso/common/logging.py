@@ -50,7 +50,10 @@ def setup_logging(path: Optional[Path] = None, level=logging.INFO):
             log_dir = Path(os.getenv('STORAGE_PATH')).joinpath(os.getenv('LOG_PATH'))
             if not log_dir.exists():
                 log_dir.mkdir(parents=True)
-            config = yaml.safe_load(re.sub(r'\{\{\s*log-path\s*\}\}', str(log_dir), f.read()))
+
+            config_data = f.read().replace('{{log-path}}', str(log_dir))
+            config = yaml.safe_load(config_data)
+
             logging.config.dictConfig(config)
         except Exception as e:
             print(e)

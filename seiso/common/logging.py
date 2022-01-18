@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -7,6 +8,8 @@ import logging.config
 import logging
 import time
 from datetime import timedelta
+
+from dotenv import load_dotenv
 
 
 class ElapsedFilter(logging.Filter):
@@ -33,6 +36,7 @@ class ElapsedFormatter(logging.Formatter):
 
 
 def setup_logging(path: Optional[Path] = None, level=logging.INFO):
+    load_dotenv()
     if path is None:
         path = Path('logging.yml')
 
@@ -43,7 +47,10 @@ def setup_logging(path: Optional[Path] = None, level=logging.INFO):
 
     with path.open('r') as f:
         try:
-            config = yaml.safe_load(f.read())
+            log_dir = Path(os.getenv('STORAGE_PATH')).joinpath(os.getenv('LOG_PATH'))
+            if not log_dir.exists():
+                log_dir.mkdir(parents=True)
+            config = yaml.safe_load(re.sub(r'\{\{\s*log-path\s*\}\}', str(log_dir), f.read()))
             logging.config.dictConfig(config)
         except Exception as e:
             print(e)

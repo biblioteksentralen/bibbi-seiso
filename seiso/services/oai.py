@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from hashlib import md5
 from json import JSONDecodeError
@@ -26,8 +26,9 @@ class OaiPmhSettings:
     endpoint: str
     metadata_prefix: str
     metadata_schema: str
-    oai_set: str
     storage_dir: Path
+    oai_set: Optional[str] = None
+    request_args: Optional[dict] = field(default_factory=dict)
 
 
 @dataclass
@@ -108,7 +109,7 @@ class OaiPmh:
 
         print(self.settings.endpoint, harvest_options)
 
-        sickle = Sickle(self.settings.endpoint, max_retries=10, timeout=60)
+        sickle = Sickle(self.settings.endpoint, max_retries=0, timeout=10, **self.settings.request_args)
         records = sickle.ListRecords(**harvest_options)
 
         t0 = time()

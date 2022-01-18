@@ -4,10 +4,19 @@ Python-basert verktøykasse for å jobbe med Bibbi via Promus og Noraf via Bibsy
 
 ## Oppsett
 
-Prosjektet bruker [Poetry](python-poetry.org/). Hvis du har installert Poetry,
-kan du sette opp et avgrenset Python-miljø og installere avhengigheter i dette slik:
+Du trenger
+
+* [Poetry](python-poetry.org/)
+* [ODBC Driver for SQL Server](https://docs.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver15)
+
+I `bibbi-seiso`-mappa, kjør:
 
     poetry install
+
+Kommandoen henter inn avhengighetene som trengs, men kan feile hvis du mangler grunnleggende kompilatorer og programmeringsbibliotek på maskinen.
+På Windows trengs f.eks. "C++ build tools". For oppdaterte instruksjoner om akkurat hvilke pakker som trengs, se https://wiki.python.org/moin/WindowsCompilers
+
+### Konfigurasjon
 
 Før du kan bruke bibbi-seiso, må du opprette en `.env`-fil fra `.env.dist`
 

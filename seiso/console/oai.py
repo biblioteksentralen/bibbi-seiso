@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -46,7 +47,7 @@ def main():
     parser_harvest = subparsers.add_parser('harvest', help='Harvest records')
     parser_harvest.add_argument(
         'source',
-        help='alma or noraf'
+        help='alma, noraf or bibbi'
     )
     parser_harvest.add_argument(
         'destination_dir',
@@ -75,16 +76,30 @@ def main():
     if not args.destination_dir:
         print("ERR: Destination dir not set")
 
-    dir: Path = args.destination_dir.joinpath(args.source)
-    dir.mkdir(exist_ok=True)
+    storage_dir: Path = args.destination_dir.joinpath(args.source)
+    storage_dir.mkdir(exist_ok=True)
 
-    if args.source == 'alma':
+    if args.source == 'bibbi':
+        if not os.getenv('BIBBI_OAI_USER') or not os.getenv('BIBBI_OAI_PASSWORD'):
+            raise Exception('BIBBI_OAI_USER and/or BIBBI_OAI_PASSWORD not configured')
+        settings = OaiPmhSettings(
+            endpoint='https://oai.aja.bs.no/bibbi',
+            metadata_prefix="marc21",
+            metadata_schema="info:lc/xmlns/marcxchange-v1",
+            storage_dir=storage_dir,
+            request_args={'auth': (
+                os.getenv('BIBBI_OAI_USER').encode('utf-8'),
+                os.getenv('BIBBI_OAI_PASSWORD').encode('utf-8')
+            )},
+        )
+
+    elif args.source == 'alma':
         settings = OaiPmhSettings(
             endpoint='http://eu01.alma.exlibrisgroup.com/view/oai/47BIBSYS_NETWORK/request',
             metadata_prefix="marc21",
             metadata_schema="http://www.loc.gov/MARC21/slim",
             oai_set="oai_komplett",
-            storage_dir=dir,
+            storage_dir=storage_dir,
         )
     elif args.source == 'noraf':
         settings = OaiPmhSettings(
@@ -92,7 +107,7 @@ def main():
             metadata_prefix="marcxchange",
             metadata_schema="info:lc/xmlns/marcxchange-v1",
             oai_set="bibsys_authorities",
-            storage_dir=dir,
+            storage_dir=storage_dir,
         )
     else:
         raise Exception('Unknown source')

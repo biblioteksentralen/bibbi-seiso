@@ -16,6 +16,8 @@ I `bibbi-seiso`-mappa, kjør:
 Kommandoen henter inn avhengighetene som trengs, men kan feile hvis du mangler grunnleggende kompilatorer og programmeringsbibliotek på maskinen.
 På Windows trengs f.eks. "C++ build tools". For oppdaterte instruksjoner om akkurat hvilke pakker som trengs, se https://wiki.python.org/moin/WindowsCompilers
 
+Ved problemer med pyodbc, se https://github.com/mkleehammer/pyodbc/wiki/Install
+
 ### Konfigurasjon
 
 Før du kan bruke bibbi-seiso, må du opprette en `.env`-fil fra `.env.dist`

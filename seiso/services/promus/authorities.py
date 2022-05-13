@@ -179,11 +179,18 @@ class BibbiGeographicRecord(BibbiAuthorityRecord):
     GeoUnderTopic: Optional[str] = None
     GeoUnderTopic_N: Optional[str] = None
     GeoDetail: Optional[str] = None
+    UnderTopic: Optional[str] = None
+    UnderTopic_N: Optional[str] = None
+    NotInUse: Optional[str] = None
+    Reference: Optional[str] = None
+    ReferenceNr: Optional[str] = None
+    # TODO: Add remaining fields
 
     def label(self):
-        if self.GeoUnderTopic is not None:
-            return self.GeoName + ' - ' + self.GeoUnderTopic
-        return self.GeoName
+        return self._DisplayValue
+        #if self.GeoUnderTopic is not None:
+        #    return self.GeoName + ' - ' + self.GeoUnderTopic
+        #return self.GeoName
 
 
 @dataclass
@@ -493,6 +500,9 @@ class BibbiAuthorityCollection(PromusCollection):
                    select_columns=', '.join([f.name for f in self.data_fields]),
                    table=self.table_name)
         for row in self._conn.select(query, normalize=False):
+            if 'ReferenceNr' not in row:
+                print('Table does not support references')
+                return {}
             ref_id = row['ReferenceNr']
             references[ref_id] = references.get(ref_id, []) + [self._record_factory(row)]
         return references
@@ -616,6 +626,8 @@ class GeographicCollection(BibbiAuthorityCollection):
     marc_fields: Set[int] = field(default_factory=lambda: {651})
 
     def list(self, filters: Optional[QueryFilters] = None) -> Generator[BibbiGeographicRecord, None, None]:
+        if filters is None:
+            filters = QueryFilters()
         return super(GeographicCollection, self).list(filters)
 
 
@@ -668,10 +680,11 @@ class AuthorityCollections:
     #     if field_name == 'Bibsent_ID':
     #         return AuthorityCollections([x for x in self._all if isinstance(x, PersonCollection, CorporationCollection, ConferenceCollection)])
 
+
 @dataclass
 class Item:
     id: str
-    primary_key_column: int
+    primary_key: int
     product_key: str
     title: str
 

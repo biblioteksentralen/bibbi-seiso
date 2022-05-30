@@ -1,5 +1,13 @@
-# Script som går gjennom avgodkjente 651-strenger og finner erstatningsstrenger,
-# f.eks. `651 Norden - Historie - 800-1050 - Essay` -> `651 Norden - Historie - 800-1050` + `655 Essay`
+# Script som går gjennom avgodkjente 651-strenger og finner erstatningsstrenger ved å sjekke om
+# siste del av strengen finnes i en godkjent streng, f.eks.
+# - `651 Dublin - Reisehåndbøker &` -> `651 Irland (republikken) - Dublin - Reisehåndbøker`
+#
+# Hvis den ikke gjør det, fjerner vi ett ledd og sjekker på nytt, f.eks.
+# - `651 Norden - Historie - 800-1050 - Essay &` -> `651 Norden - Historie - 800-1050` + `655 Essay`
+#
+# For enkelte formtermer, legger vi til formtermen som 655 hvis den ikke finnes fra før, f.eks.
+# - `651 Europa - Essay &` -> `651 Europa` + `655 Essay`
+
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
 from seiso.services.promus import Promus

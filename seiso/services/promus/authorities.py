@@ -47,11 +47,11 @@ class QueryFilters:
 
     def get_query_params(self):
         for _filter in self.filters:
-            if isinstance(_filter.param, str):
-                yield _filter.param
             if isinstance(_filter.param, list):
                 for _param in _filter.param:
                     yield _param
+            elif _filter.param is not None:
+                yield _filter.param
 
 
 @dataclass
@@ -192,6 +192,53 @@ class BibbiGeographicRecord(BibbiAuthorityRecord):
         #    return self.GeoName + ' - ' + self.GeoUnderTopic
         #return self.GeoName
 
+
+@dataclass
+class BibbiTopicRecord(BibbiAuthorityRecord):
+    Title: Optional[str] = None
+    Title_N: Optional[str] = None
+    CorpDetail: Optional[str] = None
+    CorpDetail_N: Optional[str] = None
+    SortingTitle: Optional[str] = None
+    UnderTopic: Optional[str] = None
+    Qualifier: Optional[str] = None
+    Qualifier_N: Optional[str] = None
+    DeweyNr: Optional[str] = None
+    TopicDetail: Optional[str] = None
+    TopicLang: Optional[str] = None
+    FieldCode: Optional[str] = None
+    Security_ID: Optional[str] = None
+    UserID: Optional[str] = None
+    LastChanged: Optional[str] = None
+    Created: Optional[str] = None
+    Approved: Optional[str] = None
+    ApproveDate: Optional[str] = None
+    ApprovedUserID: Optional[str] = None
+    Reference: Optional[str] = None
+    ReferenceNr: Optional[str] = None
+    BibbiNr: Optional[str] = None
+    NotInUse: Optional[str] = None
+    Source: Optional[str] = None
+    BibbiReferenceNr: Optional[str] = None
+    GeoUnderTopic: Optional[str] = None
+    GeoUnderTopic_N: Optional[str] = None
+    UnderTopic_N: Optional[str] = None
+    WebDeweyNr: Optional[str] = None
+    WebDeweyApproved: Optional[str] = None
+    BS_Fortsettelser_Fjern: Optional[str] = None
+    BS_Fortsettelser_Serietittel: Optional[str] = None
+    BS_Fortsettelser_Kommentar: Optional[str] = None
+    WebDeweyKun: Optional[str] = None
+    Bibsent_ID: Optional[str] = None
+    Comment: Optional[str] = None
+    Forkortelse: Optional[str] = None
+    _DisplayValue: Optional[str] = None
+
+    def label(self):
+        return self._DisplayValue
+        #if self.GeoUnderTopic is not None:
+        #    return self.GeoName + ' - ' + self.GeoUnderTopic
+        #return self.GeoName
 
 @dataclass
 class BibbiPersonRecord(BibbiAuthorityRecord):
@@ -510,6 +557,8 @@ class BibbiAuthorityCollection(PromusCollection):
     def list(self, filters: Optional[QueryFilters] = None) -> Generator[PromusRecord, None, None]:
         """List authorities for this table"""
         references = self.list_references()  # @TODO: Cache
+        if filters is None:
+            filters = QueryFilters()
         filters.append(QueryFilter("ISNULL(authority.ReferenceNr, '') = ''"))
         for record in super().list(filters):
             if isinstance(record, BibbiAuthorityRecord):  # just to make PyCharm happy
@@ -613,10 +662,12 @@ class CurriculumCollection(PromusCollection):
 @dataclass
 class TopicCollection(BibbiAuthorityCollection):
     table_name: str = 'AuthorityTopic'
-    record_type: type = PromusRecord  # @TODO
+    record_type: type = BibbiTopicRecord
     primary_key_column: str = 'AuthID'
     marc_fields: Set[int] = field(default_factory=lambda: {650})
 
+    def list(self, filters: Optional[QueryFilters] = None) -> Generator[BibbiTopicRecord, None, None]:
+        return super(TopicCollection, self).list(filters)
 
 @dataclass
 class GeographicCollection(BibbiAuthorityCollection):
@@ -626,8 +677,6 @@ class GeographicCollection(BibbiAuthorityCollection):
     marc_fields: Set[int] = field(default_factory=lambda: {651})
 
     def list(self, filters: Optional[QueryFilters] = None) -> Generator[BibbiGeographicRecord, None, None]:
-        if filters is None:
-            filters = QueryFilters()
         return super(GeographicCollection, self).list(filters)
 
 

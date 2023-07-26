@@ -69,7 +69,7 @@ def try_find_replacement(authority, all_authorities):
 
     def endswith(term):
         for k, v in all_authorities.items():
-            if k.endswith(term):
+            if k.lower().strip().endswith(term.lower().strip()):
                 return v
 
     def try_match_part(parts):
@@ -83,7 +83,23 @@ def try_find_replacement(authority, all_authorities):
                 'old_DisplayValue': authority._DisplayValue,
                 'new_key': str(broader_aut.primary_key),
                 'new_DisplayValue': broader_aut._DisplayValue,
+                'new_FieldCode': '651',
             }
+
+    manual_matches = {
+        # 4842: ['650', 89492],
+        # 5056: ['650', 89492],
+    }
+
+    manual_match = manual_matches.get(authority.primary_key)
+    if manual_match:
+        return {
+            'old_key': str(authority.primary_key),
+            'old_DisplayValue': authority._DisplayValue,
+            'new_key': str(manual_match[1]),
+            'new_DisplayValue': '(manuelt matchet)',
+            'new_FieldCode': manual_match[0],
+        }
 
     parts = clean_label(authority._DisplayValue).split(' - ')
     # I første omgang prøver vi å fjerne opptil 1 ledd (0 og 1).
@@ -111,7 +127,7 @@ def add_itemfield_entry_if_not_exists(item_id, field_id, field_code, ind1, ind2,
     if not match:
         below = [row.sort_order for row in rows if row.sort_order is not None and int(row.field_code) < int(field_code)]
         sort_order = max(below) + 1
-        return f"INSERT INTO ItemField (Item_ID, Indicator1, Indicator2, SortOrder, Field_ID, FieldCode, Authority_ID, SubFieldCode) VALUES ({item_id}, '{ind1}', '{ind2}', {sort_order}, {field_id}, '{field_code}', {authority_id}, '{subfield_code}')"
+        return f"INSERT INTO ItemField (Item_ID, Indicator1, Indicator2, SortOrder, Field_ID, FieldCode, Authority_ID, SubFieldCode) VALUES ({item_id}, '{ind1}', '{ind2}', {sort_order}, {field_id}, '{field_code}', {authority_id}, '{subfield_code}');"
 
 
 def update_authority(match, docs):
@@ -150,7 +166,7 @@ def update_authority(match, docs):
             )
             if query:
                 print(query)
-    print(f"UPDATE ItemField SET Authority_ID={match['new_key']} WHERE Authority_ID={match['old_key']} AND field.FieldCode = '651'")
+    print(f"UPDATE ItemField SET Authority_ID={match['new_key']}, FieldCode={match['new_FieldCode']} WHERE Authority_ID={match['old_key']} AND FieldCode = '651';")
 
     return {
         'old_key': match['old_key'],
@@ -225,8 +241,8 @@ def main():
     matches_df = pd.DataFrame.from_records(matches)
     non_matches_df = pd.DataFrame.from_records(non_matches)
 
-    matches_df.to_excel("bibbi_651_funnet_v6.xlsx")
-    non_matches_df.to_excel("bibbi_651_ikke_funnet_v6.xlsx")
+    matches_df.to_excel("bibbi_651_funnet_v14.xlsx")
+    non_matches_df.to_excel("bibbi_651_ikke_funnet_v14.xlsx")
 
 
 main()

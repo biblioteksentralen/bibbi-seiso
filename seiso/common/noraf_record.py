@@ -7,13 +7,13 @@ from typing import Optional, List, Dict, Union, Tuple, Sequence
 
 from seiso.common.xml import XmlNode
 
-from seiso.common.interfaces import NorafPersonRecord, NorafRecord, NorafCorporationRecord, IdentifierMap
+from seiso.common.interfaces import NorafMeetingRecord, NorafPersonRecord, NorafRecord, NorafCorporationRecord, IdentifierMap
 
 logger = logging.getLogger(__name__)
 
 TYPE_PERSON = 'PERSON'
 TYPE_CORPORATION = 'CORPORATION'
-
+TYPE_MEETING = 'MEETING'
 
 class FieldNotFound(IndexError):
     pass
@@ -106,6 +106,10 @@ record_types: Dict = {
     TYPE_CORPORATION: {
         'cls': NorafCorporationRecord,
         'tag': '10',
+    },
+    TYPE_MEETING: {
+        'cls': NorafMeetingRecord,
+        'tag': '11',
     }
 }
 

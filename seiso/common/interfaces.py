@@ -47,6 +47,11 @@ class Corporation(Authority):
     """Korporasjon i Bibbi eller Noraf"""
     dates: Optional[str] = None
 
+
+@dataclass
+class Meeting(Authority):
+    """Møte i Bibbi eller Noraf"""
+
 #
 # @dataclass
 # class BibbiRecord(Authority):
@@ -68,6 +73,12 @@ class NorafCorporation(Corporation):
     pass
 
 
+@dataclass
+class NorafMeeting(Meeting):
+    """Møte i Noraf. Ikke nødvendigvis en komplett post, kan være en referanse"""
+    pass
+
+
 IdentifierMap = Dict[str, List[str]]
 
 
@@ -86,6 +97,10 @@ class NorafPersonRecord(NorafPerson, NorafRecord):
 
 @dataclass
 class NorafCorporationRecord(NorafCorporation, NorafRecord):
+    pass
+
+@dataclass
+class NorafMeetingRecord(NorafMeeting, NorafRecord):
     pass
 
 

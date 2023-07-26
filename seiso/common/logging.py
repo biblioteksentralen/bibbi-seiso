@@ -41,9 +41,9 @@ def setup_logging(path: Optional[Path] = None, level=logging.INFO):
         path = Path('logging.yml')
 
     if not path.exists():
-        logging.basicConfig(level=level)
+        logging.basicConfig(level=level, force=True)
         print('Failed to load configuration file. Using default configs')
-        return
+        return logging.getLogger()
 
     with path.open('r') as f:
         try:

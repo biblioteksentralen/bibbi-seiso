@@ -9,7 +9,7 @@ logs
 *.log
 /*.json
 reports/*.json
-
+oai-harvest
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

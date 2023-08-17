@@ -2,6 +2,7 @@
 Verify all links from Bibbi to Noraf
 """
 import argparse
+import json
 import logging
 import os
 import time
@@ -72,6 +73,15 @@ class Processor:
         ] + columns)
 
     def run(self):
+
+        already_checked = []
+
+        already_checked_file = 'poster_som_allerede_er_sjekket.json'
+        if os.path.exists(already_checked_file):
+            with open(already_checked_file, 'r', encoding='utf-8') as fp:
+                already_checked = json.loads(fp.read())
+                print("Already checked: %d" % len(already_checked))
+
         all_records = self.get_bibbi_records()
 
         for record_type, bibbi_records in all_records.items():
@@ -81,6 +91,8 @@ class Processor:
 
             n = 0
             for bibbi_rec in bibbi_records:
+                if bibbi_rec.NB_ID in already_checked:
+                    continue
                 noraf_id = str(bibbi_rec.NB_ID)
                 try:
                     noraf_rec = self.noraf.get(noraf_id)
@@ -92,8 +104,13 @@ class Processor:
                     ])
 
                 n += 1
+                already_checked.append(bibbi_rec.NB_ID)
                 if n % 500 == 0:
                     self.overview_report.save_json(reports_path.joinpath(f'bibbi-noraf-overgang - {record_type}.json'))
+                    with open(already_checked_file, 'w', encoding='utf-8') as fp:
+                        fp.write(json.dumps(already_checked))
+                        print("Oppdaterte %s, poster sjekket: %d" % ( already_checked_file, len(already_checked)))
+
                     time.sleep(10)
 
             self.overview_report.save_json(reports_path.joinpath(f'bibbi-noraf-overgang - {record_type}.json'))
@@ -192,7 +209,8 @@ class Processor:
 
         # 3. Ensure that a reverse mapping exists (from NORAF to BIBBI)
         if len(noraf_rec.identifiers('bibbi')) == 0:
-            noraf_rec.set_identifiers('bibbi', [bibbi_id])
+            bibbi_uri = 'https://id.bs.no/bibbi/' + bibbi_id
+            noraf_rec.set_identifiers('bibbi', [bibbi_uri])
             noraf_update_reasons.append('La til Bibbi-lenker')
 
         # 3. Ensure nationality is set correctly

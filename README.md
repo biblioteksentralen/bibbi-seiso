@@ -132,7 +132,7 @@ Videre produserer scriptet to rapporter:
 
 Dette scriptet trenger en oppdatert dump fra OAI-PMH:
 
-    poetry run noraf harvest ../oai_harvest
+    poetry run oai harvest noraf ../oai_harvest
 
 (Dumpen oppdateres inkrementelt hvis det eksisterer en fullstendig dump fra før)
 

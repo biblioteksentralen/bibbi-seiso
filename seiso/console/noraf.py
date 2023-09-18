@@ -57,7 +57,7 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
     logger.debug('Connected to Promus')
     noraf_rec = noraf.get(args.noraf_id)
     bibbi_rec = SimpleBibbiRecord.create(promus.authorities.first(Bibsent_ID=args.bibbi_id))
-    bibbi_uri = bibbi_rec.id
+    bibbi_uri = 'https://id.bs.no/bibbi/' + bibbi_rec.id
 
     logger.info('[Bibbi] %s %s (%s)', bibbi_rec.name, bibbi_rec.dates or '', bibbi_rec.id)
     logger.info('[Noraf] %s %s (%s)', noraf_rec.name, noraf_rec.dates or '', noraf_rec.id)

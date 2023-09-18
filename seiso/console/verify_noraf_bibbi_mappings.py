@@ -176,7 +176,7 @@ class Processor:
             all_files += [os.path.join(dirpath, filename) for filename in filenames if filename.endswith('.xml')]
         bibbi_files = []
         for filename in tqdm(all_files, desc='Scanning OAI-PMH harvest...'):
-            with open(filename, 'r') as fp:
+            with open(filename, 'r', encoding='utf-8') as fp:
                 if '>bibbi<' in fp.read():
                     bibbi_files.append(filename)
         with filelist_cache.open('w', encoding='utf-8') as fp:
@@ -190,7 +190,7 @@ class Processor:
         log.info('Fant %d Noraf-autoritetsposter med lenke til Bibbi', len(filenames))
         self.stats = {}
         for filename in tqdm(filenames, desc='Checking NORAF records'):
-            with self.harvest_dir.joinpath(filename).open('rb') as fp:
+            with open(filename, 'rb') as fp:
                 doc = XmlNode(
                     etree.parse(fp),
                     'info:lc/xmlns/marcxchange-v1',

@@ -251,7 +251,7 @@ class Processor:
         for k, v in self.stats.items():
             print('%s: %s' % (k, v))
 
-        send_email(self.notifications)
+        # send_email(self.notifications)
 
     def process_dead_link(self, noraf_rec: NorafRecord, bibbi_id: str):
         """Behandle et tilfelle der en Noraf-post N1 lenker til en ikke-eksisterende Bibbi-post B1."""

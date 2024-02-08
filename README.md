@@ -101,6 +101,14 @@ Dette vil
 1. Oppdatere Promus med NORAF-ID-en, samt annen informasjon fra Noraf (status, kjønn, landskode, etc.)
 2. Oppdatere Noraf med Bibbi-URI-en, hvis den ikke allerede er lagt inn.
 
+#### `noraf delete` : 
+
+For å slette en post:
+
+    poetry run noraf delete {noraf_id}
+
+Dette vil slette posten. Skal kun brukes på nylig opprettede poster fra Biblioteksentralen uten noen tilkoblinger i Oria (sjekk https://bsaut.toolforge.org/)
+
 ### Verifisering og fiksing av mappinger
 
 #### Bibbi → Noraf

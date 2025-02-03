@@ -83,7 +83,8 @@ def send_email(notifications: List[str]):
 
 @dataclass
 class SimpleBibbiRecord:
-    id: str
+    local_id: str
+    uri: str
     type: str
     label: str
     noraf_id: str
@@ -112,7 +113,7 @@ class SimpleBibbiRecord:
         return rec
 
     def md_link(self):
-        return f'[{self.id}: {self.label}](https://bsaut.toolforge.org/show/{self.id})'
+        return f"[{self.id}: {self.label}]({self.uri})"
 
 
 class IsDir(argparse.Action):
@@ -317,8 +318,8 @@ class Processor:
             self.update_noraf_record(
                 noraf_rec,
                 remove_ids=[bibbi_id],
-                add_ids=[best_match.id],
-                reason=notification.details
+                add_ids=[best_match.uri],
+                reason=notification.details,
             )
             self.notifications.append(notification)
             return
@@ -469,7 +470,7 @@ class Processor:
 
 
 def main():
-    default_harvest_dir = storage_path('noraf-harvest', create=False)
+    default_harvest_dir = storage_path("oai-harvest/noraf", create=False)
 
     parser = argparse.ArgumentParser(
         description=dedent(

@@ -26,6 +26,7 @@ logger = setup_logging(level=logging.INFO)
 load_dotenv()
 
 
+
 class Processor:
 
     cache_filename = 'bibbi_records.cache'
@@ -115,35 +116,37 @@ class Processor:
 
             self.overview_report.save_json(reports_path.joinpath(f'bibbi-noraf-overgang - {record_type}.json'))
 
-            self.overview_report.save_excel(reports_path.joinpath(f'bibbi-noraf-overgang - {record_type}.xlsx'),
-                                            headers=[
-                ReportHeader('Bibbi-post', 'ID', 15),
-                ReportHeader('', '1XX $a', 30),
-                ReportHeader('', '4XX', 40),
-                ReportHeader('', '1XX $d', 20),
-                ReportHeader('', 'Sist endret', 15),
+            self.overview_report.save_excel(
+                reports_path.joinpath(f"bibbi-noraf-overgang - {record_type}.xlsx"),
+                headers=[
+                    ReportHeader("Bibbi-post", "ID", 15),
+                    ReportHeader("", "1XX $a", 30),
+                    ReportHeader("", "4XX", 40),
+                    ReportHeader("", "1XX $d", 20),
+                    ReportHeader("Noraf-post", "ID", 20),
+                    ReportHeader("", "1XX $a", 30),
+                    ReportHeader("", "4XX", 40),
+                    ReportHeader("", "1XX $d", 20),
+                    ReportHeader("", "Sist endret", 15),
+                    ReportHeader("", "Status", 10),
+                    ReportHeader("", "Kilde", 15),
+                    ReportHeader(
+                        "Andre Bibbi-poster", "lenket til samme Noraf-post", 30
+                    ),
+                ],
+            )
 
-                ReportHeader('Noraf-post', 'ID', 20),
-                ReportHeader('', '1XX $a', 30),
-                ReportHeader('', '4XX', 40),
-                ReportHeader('', '1XX $d', 20),
-                ReportHeader('', 'Sist endret', 15),
-                ReportHeader('', 'Status', 10),
-                ReportHeader('', 'Kilde', 15),
-
-                ReportHeader('Andre Bibbi-poster', 'lenket til samme Noraf-post', 30),
-            ])
-
-            self.error_report.save_excel(reports_path.joinpath('bibbi-noraf-overgang - feil.xlsx'), headers=[
-                ReportHeader('Bibbi-post', 'ID', 15),
-                ReportHeader('', '1XX $a', 30),
-                ReportHeader('', '4XX', 40),
-                ReportHeader('', '1XX $d', 20),
-                ReportHeader('', 'Sist endret', 15),
-
-                ReportHeader('Noraf-post', 'ID', 20),
-                ReportHeader('', 'Feil', 80),
-            ])
+            self.error_report.save_excel(
+                reports_path.joinpath("bibbi-noraf-overgang - feil.xlsx"),
+                headers=[
+                    ReportHeader("Bibbi-post", "ID", 15),
+                    ReportHeader("", "1XX $a", 30),
+                    ReportHeader("", "4XX", 40),
+                    ReportHeader("", "1XX $d", 20),
+                    ReportHeader("Noraf-post", "ID", 20),
+                    ReportHeader("", "Feil", 80),
+                ],
+            )
 
     @staticmethod
     def get_promus_records(table):
@@ -153,7 +156,9 @@ class Processor:
             QueryFilter("ISNULL(NB_ID, '') != ''"),
         ]))
 
-    def replace_promus_link(self, bibbi_rec, old_noraf_rec, new_noraf_rec_id):
+    def replace_promus_link(
+        self, record_type: str, bibbi_rec, old_noraf_rec, new_noraf_rec_id
+    ):
         replacement_record = self.noraf.get(new_noraf_rec_id)
 
         msg = 'replace_promus_link: Noraf-posten %s (%s) har blitt erstattet av %s (%s)' % (
@@ -163,7 +168,16 @@ class Processor:
             str(replacement_record)
         )
         logger.warning(msg)
-        self.promus.authorities.person.link_to_noraf(bibbi_rec, replacement_record, msg)
+        if record_type == TYPE_PERSON:
+            self.promus.authorities.person.link_to_noraf(
+                bibbi_rec, replacement_record, msg
+            )
+        elif record_type == TYPE_CORPORATION:
+            self.promus.authorities.corporation.link_to_noraf(
+                bibbi_rec, replacement_record, msg
+            )
+        else:
+            logger.warning(f"Record type not supported for linking: {record_type}")
         time.sleep(10)
         return replacement_record
 
@@ -172,14 +186,22 @@ class Processor:
         noraf_update_reasons = []
 
         bibbi_id = str(bibbi_rec.Bibsent_ID)
+        bibbi_uri = f"https://id.bs.no/bibbi/{bibbi_id}"
 
         # 1. Check if record has been deleted or replaced
         if noraf_rec.deleted:
             if noraf_rec.replaced_by is not None and len(noraf_rec.replaced_by) > 1:
-                noraf_rec = self.replace_promus_link(bibbi_rec, noraf_rec, noraf_rec.replaced_by)
+                noraf_rec = self.replace_promus_link(
+                    record_type, bibbi_rec, noraf_rec, noraf_rec.replaced_by
+                )
             else:
                 recs = list(self.noraf.sru_search('bib.identifierAuthority=%s' % bibbi_id))
-                recs = [x for x in recs if bibbi_id in x.other_ids.get('bibbi', [])]
+                recs = [
+                    x
+                    for x in recs
+                    if bibbi_id in x.other_ids.get("bibbi", [])
+                    or bibbi_uri in x.other_ids.get("bibbi", [])
+                ]
                 if len(recs) == 1:
                     noraf_rec = self.replace_promus_link(bibbi_rec, noraf_rec, recs[0].id)
                 elif len(recs) > 1:
@@ -251,16 +273,26 @@ class Processor:
 
             time.sleep(10)
 
-        self.add_row(self.overview_report, bibbi_rec, [
-            '{NORAF}' + noraf_rec.id,
-            noraf_rec.name,
-            ' || '.join(noraf_rec.alt_names),
-            noraf_rec.dates or '',
-            noraf_rec.modified.strftime('%Y-%m-%d'),
-            noraf_rec.status,
-            noraf_rec.origin,
-            ' || '.join([x for x in noraf_rec.identifiers('bibbi') if x != bibbi_id]),
-        ])
+        self.add_row(
+            self.overview_report,
+            bibbi_rec,
+            [
+                "{NORAF}" + noraf_rec.id,
+                noraf_rec.name,
+                " || ".join(noraf_rec.alt_names),
+                noraf_rec.dates or "",
+                noraf_rec.modified.strftime("%Y-%m-%d"),
+                noraf_rec.status,
+                noraf_rec.origin,
+                " || ".join(
+                    [
+                        x
+                        for x in noraf_rec.identifiers("bibbi")
+                        if x != bibbi_id and x != bibbi_uri
+                    ]
+                ),
+            ],
+        )
 
         # time.sleep(1)
 

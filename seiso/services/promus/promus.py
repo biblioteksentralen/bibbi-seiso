@@ -7,7 +7,9 @@ import pyodbc  # type: ignore
 from typing import List, Optional, Union, Generator
 
 from seiso.console.helpers import log_path
-from seiso.services.promus.authorities import AuthorityCollections, ItemCollection
+from seiso.services.promus.authorities import AuthorityCollections
+from seiso.services.promus.enums import EnumsCollections
+from seiso.services.promus.item import ItemCollection
 
 logger = logging.getLogger(__name__)
 update_logger = logging.getLogger('promus_update_logger')
@@ -133,6 +135,7 @@ class Promus:
         self.connection_options['update_log'].touch()
 
         self.authorities = AuthorityCollections(self)
+        self.enums = EnumsCollections(self)
         self.items = ItemCollection(self)
 
     def connection(self) -> MsSql:

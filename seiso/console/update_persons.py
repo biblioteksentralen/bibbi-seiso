@@ -13,10 +13,11 @@ from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
 from seiso.console.helpers import storage_path
+from seiso.console.verify_noraf_bibbi_mappings import SimpleBibbiRecord
 from seiso.services.noraf import Noraf
 from seiso.common.noraf_record import NorafJsonMarcField
 
-from seiso.common.interfaces import BibbiPerson, NorafPersonRecord
+from seiso.common.interfaces import NorafPersonRecord
 from seiso.services.promus import Promus
 from seiso.common.logging import setup_logging
 
@@ -36,7 +37,11 @@ def country_codes_from_nationality(promus: Promus, value: Optional[str]):
     if value is None:
         return []
     values = value.split('-')
-    values = [promus.authorities.countries.short_name_map[x] for x in values if x in promus.authorities.countries.short_name_map]
+    values = [
+        promus.enums.countries.short_name_map[x]
+        for x in values
+        if x in promus.enums.countries.short_name_map
+    ]
     return values
 
 
@@ -45,16 +50,20 @@ def update_person(promus: Promus,
                   match: BibbiNorafMatch,
                   dry_run: bool,
                   backup_path: Optional[Path] = None):
+    bibbi_person_aut = promus.authorities.person.get(match.bibbi_id)
 
-    bibbi_person = promus.authorities.person.get(match.bibbi_id)
-
-    if bibbi_person is None:
+    if bibbi_person_aut is None:
         logger.info('Person no longer exists in Bibbi: %s', match.bibbi_id)
         return False
 
+    bibbi_person = SimpleBibbiRecord.create(bibbi_person_aut)
     if bibbi_person.noraf_id is not None:
         if bibbi_person.noraf_id != match.noraf_id:
-            logger.warning('Person already matched to %s. Our suggestion: %s', bibbi_person.noraf_id, match.noraf_id)
+            logger.warning(
+                "Person already matched to %s. Our suggestion: %s",
+                bibbi_person.noraf_id,
+                match.noraf_id,
+            )
         return False
 
     noraf_json_rec = noraf.get(match.noraf_id)

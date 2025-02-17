@@ -11,7 +11,6 @@ from seiso.console.verify_noraf_bibbi_mappings import SimpleBibbiRecord
 
 from seiso.common.noraf_record import NorafJsonRecord
 from seiso.common.logging import setup_logging
-from seiso.console.helpers import storage_path
 from seiso.services.noraf import Noraf
 from seiso.services.promus import Promus
 
@@ -56,10 +55,16 @@ def link_action(noraf: Noraf, args: argparse.Namespace) -> None:
     promus = Promus(read_only_mode=args.dry_run)
     logger.debug('Connected to Promus')
     noraf_rec = noraf.get(args.noraf_id)
-    bibbi_rec = SimpleBibbiRecord.create(promus.authorities.first(Bibsent_ID=args.bibbi_id))
-    bibbi_uri = 'https://id.bs.no/bibbi/' + bibbi_rec.id
+    first_result = promus.authorities.first(Bibsent_ID=args.bibbi_id)
+    if first_result is None:
+        logger.error("No Bibbi record found with ID %s", args.bibbi_id)
+        return
+    bibbi_rec = SimpleBibbiRecord.create(first_result)
+    bibbi_uri = "https://id.bs.no/bibbi/" + bibbi_rec.uri
 
-    logger.info('[Bibbi] %s %s (%s)', bibbi_rec.name, bibbi_rec.dates or '', bibbi_rec.id)
+    logger.info(
+        "[Bibbi] %s %s (%s)", bibbi_rec.name, bibbi_rec.dates or "", bibbi_rec.uri
+    )
     logger.info('[Noraf] %s %s (%s)', noraf_rec.name, noraf_rec.dates or '', noraf_rec.id)
 
     if bibbi_rec.noraf_id == noraf_rec.id:

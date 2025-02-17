@@ -187,11 +187,13 @@ def main():
     promus = Promus()
 
     # Hent alle personer fra Bibbi
-    bibbi_persons = promus.authorities.person.list([
-        QueryFilter('ReferenceNr IS NULL'),
-        QueryFilter('Felles_ID = Bibsent_ID'),
-        QueryFilter('NB_ID IS NULL'),
-    ])
+    bibbi_persons = promus.authorities.person.list_records(
+        [
+            QueryFilter("ReferenceNr IS NULL"),
+            QueryFilter("Felles_ID = Bibsent_ID"),
+            QueryFilter("NB_ID IS NULL"),
+        ]
+    )
     logger.info('%d persons read from Promus', len(bibbi_persons))
 
     # Velg ut de som har minst en utgivelse i 2019 eller 2020, men spar på alle utgivelsene til disse personene,

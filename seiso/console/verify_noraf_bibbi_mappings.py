@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from textwrap import dedent
-from typing import Sequence, List, Optional
+from typing import Sequence, Optional
 
 import mdmail
 from dotenv import load_dotenv
@@ -23,8 +23,17 @@ from seiso.common.xml import XmlNode
 from seiso.console.helpers import Report, ReportHeader, storage_path
 from seiso.services.noraf import Noraf, NorafRecordNotFound
 from seiso.services.promus import Promus
-from seiso.services.promus.authorities import QueryFilter, QueryFilters, BibbiAuthorityRecord, BibbiPersonRecord, \
-    BibbiCorporationRecord, BibbiConferenceRecord
+from seiso.services.promus.authorities import (
+    CorporationCollection,
+    PersonCollection,
+    QueryFilter,
+    QueryFilters,
+    BibbiAuthorityRecord,
+    BibbiPersonRecord,
+    BibbiCorporationRecord,
+    BibbiConferenceRecord,
+)
+from seiso.constants import bibbi_uri_namespace
 
 log = setup_logging(level=logging.INFO)
 
@@ -59,7 +68,7 @@ class Notification:
     record_link: Optional[str] = None
     issue: Optional[str] = None
     details: Optional[str] = None
-    suggestions: List = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
 
     def __str__(self):
         if len(self.suggestions) == 0:
@@ -69,7 +78,7 @@ class Notification:
         return f"{self.record_link}: {self.issue} | {self.details} | {suggestions}"
 
 
-def send_email(notifications: List[str]):
+def send_email(notifications: list[str]):
     log.info('Sending email notification about %d notifications', len(notifications))
     params = {
         'notifications': '\n'.join([str(notification) for notification in notifications]),
@@ -83,7 +92,6 @@ def send_email(notifications: List[str]):
 
 @dataclass
 class SimpleBibbiRecord:
-    local_id: str
     uri: str
     type: str
     label: str
@@ -96,14 +104,18 @@ class SimpleBibbiRecord:
         return f'bibbi_id="{self.id}" label="{self.label}"'
 
     @staticmethod
-    def create(src: Optional[BibbiAuthorityRecord]) -> Optional[SimpleBibbiRecord]:
-        if src is None:
-            return None
+    def create(src: BibbiAuthorityRecord) -> SimpleBibbiRecord:
         if not (isinstance(src, BibbiPersonRecord) or isinstance(src, BibbiCorporationRecord)
                 or isinstance(src, BibbiConferenceRecord)):
             raise ValueError("Unsupported record type: %s" % str(src))
-        rec = SimpleBibbiRecord(id=str(src.Bibsent_ID), type=src.__class__.__name__, label=src.label(),
-                                noraf_id=str(src.NB_ID), original=src)
+        uri = bibbi_uri_namespace + str(src.Bibsent_ID)
+        rec = SimpleBibbiRecord(
+            uri=uri,
+            type=src.__class__.__name__,
+            label=src.label(),
+            noraf_id=str(src.NB_ID),
+            original=src,
+        )
         if isinstance(src, BibbiPersonRecord):
             rec.dates = src.PersonYear
             rec.name = src.PersonName
@@ -135,12 +147,16 @@ class Processor:
         self.dead_link_report: Report = Report()
         self.one_to_many_report: Report = Report()
         self.non_symmetric_report: Report = Report()
-        self.stats: dict = {}
-        self._bibbi_noraf_mapping = {}
-        self.notifications = []
+        self.stats: dict[str, int] = {}
+        self._bibbi_noraf_mapping: dict[str, str] = {}
+        self.notifications: list[Notification] = []
 
     @staticmethod
-    def add_row(report, noraf_record: NorafRecord, columns: List[str]):
+    def add_row(
+        report,
+        noraf_record: NorafPersonRecord | NorafCorporationRecord,
+        columns: list[str],
+    ):
         report.add_row([
             '{NORAF}' + str(noraf_record.id),
             noraf_record.name,
@@ -254,7 +270,9 @@ class Processor:
 
         # send_email(self.notifications)
 
-    def process_dead_link(self, noraf_rec: NorafRecord, bibbi_id: str):
+    def process_dead_link(
+        self, noraf_rec: NorafPersonRecord | NorafCorporationRecord, bibbi_id: str
+    ):
         """Behandle et tilfelle der en Noraf-post N1 lenker til en ikke-eksisterende Bibbi-post B1."""
         notification = Notification(
             record_id=noraf_rec.id,
@@ -270,23 +288,27 @@ class Processor:
         bibbi_ids = noraf_rec.other_ids.get('bibbi', [])
         for bibbi_id2 in bibbi_ids:
             if bibbi_id2 != bibbi_id:
-                bibbi_rec2 = SimpleBibbiRecord.create(self.promus.authorities.first(Bibsent_ID=bibbi_id2))
-                if bibbi_rec2 is not None:
-
-                    notification.details = f"Noraf-posten lenker også til en annen Bibbi-post, som eksisterer: " \
-                                           f"{bibbi_rec2.md_link()}. Fjerner derfor lenken til {bibbi_id} fra Noraf-posten."
-                    self.update_noraf_record(
-                        noraf_rec,
-                        remove_ids=[bibbi_id],
-                        reason=notification.details
-                    )
-                    self.notifications.append(notification)
-                    return
+                promus_result = self.promus.authorities.first(Bibsent_ID=bibbi_id2)
+                if promus_result is not None:
+                    simple_rec = SimpleBibbiRecord.create(promus_result)
+                    if simple_rec is not None:
+                        notification.details = (
+                            f"Noraf-posten lenker også til en annen Bibbi-post, som eksisterer: "
+                            f"{simple_rec.md_link()}. Fjerner derfor lenken til {bibbi_id} fra Noraf-posten."
+                        )
+                        self.update_noraf_record(
+                            noraf_rec,
+                            remove_ids=[bibbi_id],
+                            reason=notification.details,
+                        )
+                        self.notifications.append(notification)
+                        return
 
         # ------------------
         # Case 2) Hvis det finnes en annen Bibbi-post B2 med samme navn og levetid, lenker vi N1 til den.
 
-        def find_name_matches(noraf_rec):
+        def find_name_matches(noraf_rec: NorafPersonRecord | NorafCorporationRecord):
+            table: PersonCollection | CorporationCollection
             if isinstance(noraf_rec, NorafPersonRecord):
                 table = self.promus.authorities.person
                 name_field = 'PersonName'
@@ -296,13 +318,25 @@ class Processor:
             else:
                 raise ValueError("Unsupported noraf record type")
 
-            for rec in table.list(QueryFilters([
-                QueryFilter('ReferenceNr IS NULL'),     # Ikke en henvisning
-                QueryFilter('Felles_ID = Bibsent_ID'),  # Ikke en biautoritet
-                QueryFilter("ISNULL(WebDeweyNr, '') = ''"),  # Ikke <entitet som emne>
-                QueryFilter(f'{name_field} IN (' + ','.join(['?' for _ in range(len(noraf_rec.alt_names) + 1)]) + ')',
-                            [noraf_rec.name, *noraf_rec.alt_names])
-            ])):
+            for rec in table.list_records(
+                QueryFilters(
+                    [
+                        QueryFilter("ReferenceNr IS NULL"),  # Ikke en henvisning
+                        QueryFilter("Felles_ID = Bibsent_ID"),  # Ikke en biautoritet
+                        QueryFilter(
+                            "ISNULL(WebDeweyNr, '') = ''"
+                        ),  # Ikke <entitet som emne>
+                        QueryFilter(
+                            f"{name_field} IN ("
+                            + ",".join(
+                                ["?" for _ in range(len(noraf_rec.alt_names) + 1)]
+                            )
+                            + ")",
+                            [noraf_rec.name, *noraf_rec.alt_names],
+                        ),
+                    ]
+                )
+            ):
                 yield SimpleBibbiRecord.create(rec)
 
         name_matches = list(find_name_matches(noraf_rec))
@@ -344,7 +378,7 @@ class Processor:
             # f'For å lenke disse, kjør: poetry run noraf link --replace {noraf_rec.id} {match.id}'
 
         elif len(name_matches) > 1:
-            notification.details = f'Flere treff i Bibbi med samme navn'
+            notification.details = "Flere treff i Bibbi med samme navn"
             for match in name_matches:
                 notification.suggestions.append(match)
         else:
@@ -357,16 +391,20 @@ class Processor:
             suggestion,
         ])
 
-    def process_non_symmetric_link(self, noraf_rec: NorafPersonRecord, bibbi_id: str):
-        bibbi_rec = SimpleBibbiRecord.create(
-            self.promus.authorities.first(Bibsent_ID=bibbi_id)
-        )
+    def process_non_symmetric_link(
+        self, noraf_rec: NorafPersonRecord | NorafCorporationRecord, bibbi_id: str
+    ):
+        promus_result = self.promus.authorities.first(Bibsent_ID=bibbi_id)
+        if promus_result is None:
+            log.warning(f"Bibbi-posten {bibbi_id} ble ikke funnet")
+            return
+        bibbi_rec = SimpleBibbiRecord.create(promus_result)
 
         if bibbi_rec is None or bibbi_rec.noraf_id == int(noraf_rec.id):
             # This can happen if the ID cache is stale
             return
 
-        log.warning(f'Symmetry error: {noraf_rec.id} <> {bibbi_rec.id}')
+        log.warning(f"Symmetry error: {noraf_rec.id} <> {bibbi_rec.uri}")
 
         if bibbi_rec.noraf_id is None:
             # Noraf-posten N1 lenker til Bibbi-posten B1, men Bibbi-posten B1 lenker ikke til noe.
@@ -387,25 +425,33 @@ class Processor:
         if target_noraf_rec is None or target_noraf_rec.deleted is True:
             # Noraf-posten N1 lenker til Bibbi-posten B1, men Bibbi-posten B1 lenker til en slettet Noraf-post.
             # => Legger til lenke tilbake fra Bibbi-posten B1 til Noraf-posten N1
-            log.info(f'Bibbi:{bibbi_rec.id} peker til en slettet post Noraf:{bibbi_rec.noraf_id}')
-            log.info(f'Oppdaterer Promus: Bibbi:{bibbi_rec.id} fra Noraf:{bibbi_rec.noraf_id} til Noraf:{noraf_rec.id}')
+            log.info(
+                f"Bibbi:{bibbi_rec.uri} peker til en slettet post Noraf:{bibbi_rec.noraf_id}"
+            )
+            log.info(
+                f"Oppdaterer Promus: Bibbi:{bibbi_rec.uri} fra Noraf:{bibbi_rec.noraf_id} til Noraf:{noraf_rec.id}"
+            )
             noraf_json_rec = self.noraf.get(noraf_rec.id)
             self.promus.authorities.person.link_to_noraf(
                 bibbi_rec.original,
                 noraf_json_rec,
-                reason=f'Det eksisterte en lenke fra Noraf-posten {noraf_rec.id} til Bibbi-posten {bibbi_rec.id}. '
-                       f'Bibbi-posten lenket til en slettet Noraf-post {bibbi_rec.noraf_id}'
+                reason=f"Det eksisterte en lenke fra Noraf-posten {noraf_rec.id} til Bibbi-posten {bibbi_rec.uri}. "
+                f"Bibbi-posten lenket til en slettet Noraf-post {bibbi_rec.noraf_id}",
             )
             return
 
         # Noraf-posten N1 lenker til Bibbi-posten B1, men Bibbi-posten B1 lenker til en annen, ikke-slettet
         # Noraf-post N2.
-        self.add_row(self.non_symmetric_report, noraf_rec, [
-            '{BIBBI}' + bibbi_rec.id,
-            bibbi_rec.label,
-            '{NORAF}' + target_noraf_rec.id,
-            str(target_noraf_rec),
-        ])
+        self.add_row(
+            self.non_symmetric_report,
+            noraf_rec,
+            [
+                "{BIBBI}" + bibbi_rec.uri,
+                bibbi_rec.label,
+                "{NORAF}" + target_noraf_rec.id,
+                str(target_noraf_rec),
+            ],
+        )
 
     def remove_duplicate_links(self, noraf_rec: NorafRecord):
         noraf_json_rec = self.noraf.get(noraf_rec.id)
@@ -418,8 +464,13 @@ class Processor:
             self.noraf.put(noraf_json_rec, reason='Fjernet duplikate Bibbi-ID-er')
         return distinct_bibbi_ids
 
-    def update_noraf_record(self, noraf_rec: NorafRecord, reason: str,
-                            add_ids: Sequence[str] = None, remove_ids: Sequence[str] = None):
+    def update_noraf_record(
+        self,
+        noraf_rec: NorafRecord,
+        reason: str,
+        add_ids: Optional[Sequence[str]] = None,
+        remove_ids: Optional[Sequence[str]] = None,
+    ):
         log.info(f"Planning to update NORAF record {noraf_rec.id}. Reason: {reason}")
         noraf_json_rec = self.noraf.get(noraf_rec.id)
         if remove_ids is not None:
@@ -430,10 +481,12 @@ class Processor:
                 noraf_json_rec.add_identifier('bibbi', value)
         self.noraf.put(noraf_json_rec, reason=reason)
 
-    def process_noraf_record(self, noraf_rec):
+    def process_noraf_record(
+        self, noraf_rec: NorafPersonRecord | NorafCorporationRecord
+    ):
 
         # Get Bibbi IDs
-        bibbi_ids: List[str] = noraf_rec.other_ids.get('bibbi', [])
+        bibbi_ids: list[str] = noraf_rec.other_ids.get("bibbi", [])
 
         # Look for and fix duplicates first
         distinct_bibbi_ids = list(set(bibbi_ids))
@@ -442,7 +495,7 @@ class Processor:
 
         # Update stats
         n_links = len(bibbi_ids)
-        self.stats[n_links] = self.stats.get(n_links, 0) + 1
+        self.stats[str(n_links)] = self.stats.get(str(n_links), 0) + 1
 
         # If more than one link, add to the one-to-many report
         if n_links > 1:
@@ -455,7 +508,6 @@ class Processor:
             self.add_row(self.one_to_many_report, noraf_rec, row)
 
         # Check if all links are valid
-        bibbi_ids_remove = []
         for bibbi_id in bibbi_ids:
 
             if bibbi_id not in self.bibbi_noraf_mapping:

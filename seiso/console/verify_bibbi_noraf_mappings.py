@@ -19,7 +19,13 @@ from seiso.console.helpers import Report, ReportHeader, storage_path
 from seiso.services.noraf import Noraf, TYPE_PERSON, NorafRecordNotFound, NorafUpdateFailed, TYPE_CORPORATION, \
     TYPE_CONFERENCE
 from seiso.services.promus import Promus
-from seiso.services.promus.authorities import QueryFilter, QueryFilters, BibbiAuthorityRecord
+from seiso.services.promus.authorities import (
+    BibbiCorporationRecord,
+    BibbiPersonRecord,
+    QueryFilter,
+    QueryFilters,
+    BibbiAuthorityRecord,
+)
 
 logger = setup_logging(level=logging.INFO)
 
@@ -157,7 +163,11 @@ class Processor:
         ]))
 
     def replace_promus_link(
-        self, record_type: str, bibbi_rec, old_noraf_rec, new_noraf_rec_id
+        self,
+        record_type: str,
+        bibbi_rec: BibbiAuthorityRecord,
+        old_noraf_rec: NorafJsonRecord,
+        new_noraf_rec_id: str,
     ):
         replacement_record = self.noraf.get(new_noraf_rec_id)
 
@@ -168,11 +178,11 @@ class Processor:
             str(replacement_record)
         )
         logger.warning(msg)
-        if record_type == TYPE_PERSON:
+        if isinstance(bibbi_rec, BibbiPersonRecord):
             self.promus.authorities.person.link_to_noraf(
                 bibbi_rec, replacement_record, msg
             )
-        elif record_type == TYPE_CORPORATION:
+        elif isinstance(bibbi_rec, BibbiCorporationRecord):
             self.promus.authorities.corporation.link_to_noraf(
                 bibbi_rec, replacement_record, msg
             )
@@ -203,7 +213,9 @@ class Processor:
                     or bibbi_uri in x.other_ids.get("bibbi", [])
                 ]
                 if len(recs) == 1:
-                    noraf_rec = self.replace_promus_link(bibbi_rec, noraf_rec, recs[0].id)
+                    noraf_rec = self.replace_promus_link(
+                        record_type, bibbi_rec, noraf_rec, recs[0].id
+                    )
                 elif len(recs) > 1:
                     self.add_row(self.error_report, bibbi_rec, [
                         '{NORAF}' + noraf_rec.id,

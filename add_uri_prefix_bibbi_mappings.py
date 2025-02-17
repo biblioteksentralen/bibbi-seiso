@@ -1,11 +1,11 @@
 import os
-from typing import List
 
 from dotenv import load_dotenv
 from dataclasses import dataclass
 from seiso.services.noraf import Noraf, NorafRecordNotFound, NorafUpdateFailed
 from seiso.services.promus import Promus
 from seiso.common.logging import setup_logging
+from seiso.constants import bibbi_uri_namespace
 
 
 @dataclass
@@ -17,9 +17,9 @@ class Mapping:
 
 load_dotenv()
 logger = setup_logging()
-noraf = Noraf(os.getenv('BARE_KEY'), read_only_mode=False)
+noraf = Noraf(os.getenv("BARE_KEY"), read_only_mode=False)
 promus = Promus(read_only_mode=True)
-logger.info('Connected to Promus')
+logger.info("Connected to Promus")
 
 
 def save_noraf_record(noraf_rec, reason):
@@ -31,19 +31,24 @@ def save_noraf_record(noraf_rec, reason):
         return False
 
 
-def main():
-    mappings: List[Mapping] = []
+def main() -> None:
+    mappings: list[Mapping] = []
     for record in promus.authorities.person.all():
-        if record.NB_ID is not None and record.NB_ID != '' and record.MainPerson is True:
-            mappings.append(Mapping(
-                noraf_id=str(record.NB_ID),
-                bibbi_id = str(record.Bibsent_ID),
-                bibbi_name = str(record._DisplayValue)
-            ))
+        if (
+            record.NB_ID is not None
+            and record.NB_ID != ""
+            and record.MainPerson is True
+        ):
+            mappings.append(
+                Mapping(
+                    noraf_id=str(record.NB_ID),
+                    bibbi_id=str(record.Bibsent_ID),
+                    bibbi_name=str(record._DisplayValue),
+                )
+            )
 
-    logger.info('Read %d Bibbi-Noraf mappings from Promus', len(mappings))
+    logger.info("Read %d Bibbi-Noraf mappings from Promus", len(mappings))
 
-    bibbi_uri_prefix = 'https://id.bs.no/bibbi/'
     n_added = 0
     n_changed = 0
     skipped = []
@@ -61,7 +66,7 @@ def main():
             continue
 
         bibbi_id = mapping.bibbi_id
-        bibbi_uri = bibbi_uri_prefix + mapping.bibbi_id
+        bibbi_uri = bibbi_uri_namespace + mapping.bibbi_id
         noraf_bibbi_ids = noraf_rec.identifiers('bibbi')
         if len(noraf_bibbi_ids) == 0:
             noraf_rec.set_identifiers('bibbi', [bibbi_uri])

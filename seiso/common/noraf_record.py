@@ -294,13 +294,17 @@ class NorafJsonRecord:
         main_tag = self.get_1xx_tag()
 
         kwargs: Dict = {
-            'id': self.id,
-            'created': self.created,
-            'modified': self.modified,
-            'name': self.name,
+            "id": self.id,
+            "created": self.created,
+            "modified": self.modified,
+            "name": self.name,
             # autid is not included in the XML representation, so remove it to remain compatible
-            'other_ids': {k: v for k, v in self.data['identifiersMap'].items() if k not in ['autid', 'scn']},
-            'alt_names': self.alt_names,
+            "other_ids": {
+                k: v
+                for k, v in self.data["identifiersMap"].items()
+                if k not in ["autid", "scn"] and len(v) > 0
+            },
+            "alt_names": self.alt_names,
         }
 
         if self.record_type == TYPE_PERSON:
@@ -329,6 +333,8 @@ class NorafXmlRecord:
             if voc == 'hdl':
                 voc = 'handle'
             if voc == 'NO-TrBIB':
+                continue
+            if voc == "NO-OsBAS":
                 continue
             value = datafield.text(':subfield[@code="a"]')
             ids[voc] = ids.get(voc, []) + [value]

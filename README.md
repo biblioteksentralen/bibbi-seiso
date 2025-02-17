@@ -6,12 +6,12 @@ Python-basert verktøykasse for å jobbe med Bibbi via Promus og Noraf via Bibsy
 
 Du trenger
 
-* [Poetry](python-poetry.org/)
+* [UV](https://github.com/astral-sh/uv)
 * [ODBC Driver for SQL Server](https://docs.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver15)
 
 I `bibbi-seiso`-mappa, kjør:
 
-    poetry install
+    uv sync
 
 Kommandoen henter inn avhengighetene som trengs, men kan feile hvis du mangler grunnleggende kompilatorer og programmeringsbibliotek på maskinen.
 På Windows trengs f.eks. "C++ build tools". For oppdaterte instruksjoner om akkurat hvilke pakker som trengs, se https://wiki.python.org/moin/WindowsCompilers
@@ -31,13 +31,13 @@ og legge inn påloggingsinformasjon for Promus og en API-nøkkel for Bibsys-API-
 Verktøykassen har ikke full testdekning, men kommer med automatiske tester for spesielt viktig funksjonalitet.
 Disse kan kjøres med pytest:
 
-    poetry run pytest
+    uv run pytest
 
 Merk at noen av testene henter data fra Promus og Bibsys-API-et.
 De kan feile hvis testpostene har blitt endret.
 For å ikke kjøre disse:
 
-    poetry run pytest -m "not integration"
+    uv run pytest -m "not integration"
 
 ## Innhold i verktøykassen
 
@@ -45,7 +45,7 @@ For å ikke kjøre disse:
 
 Script for å matche personer i Bibbi mot personer i Noraf basert på felles litteraturbelegg:
 
-    poetry run match_persons -h
+    uv run match_persons -h
 
 Dette produserer rapporten `bibbi-persons-match-alma.xlsx`.
 
@@ -53,7 +53,7 @@ Dette produserer rapporten `bibbi-persons-match-alma.xlsx`.
 
 Script for å oppdatere Promus basert på rader i `bibbi-persons-match-alma.xlsx` markert med "ok":
 
-    poetry run update_persons -h
+    uv run update_persons -h
 
 ### `noraf`: Manuelle operasjoner på Noraf-poster
 
@@ -71,13 +71,13 @@ rettinger lokalt, og så laste den opp igjen.
 
 En kan hente ned en post slik:
 
-    poetry run noraf get 1507616672055 > 1507616672055.json
+    uv run noraf get 1507616672055 > 1507616672055.json
 
 #### `noraf put` : oppdatere en eksisterende post
 
 En kan oppdatere en post slik:
 
-    poetry run noraf put 1507616672055.json
+    uv run noraf put 1507616672055.json
 
 Filnavnet har ingen signifikans. ID-en hentes fra "systemControlNumber"-feltet.
 
@@ -92,7 +92,7 @@ Denne kommandoen finnes ikke enda. Kan legges til i fremtiden ved behov.
 
 For å manuelt lenke en Bibbi-post til en Noraf-post:
 
-    poetry run noraf link {bibbi_id} {noraf_id}
+    uv run noraf link {bibbi_id} {noraf_id}
 
 OBS: Bruk Bibbi-ID som argument, den konverteres til URI automatisk.
 
@@ -105,7 +105,7 @@ Dette vil
 
 For å slette en post:
 
-    poetry run noraf delete {noraf_id}
+    uv run noraf delete {noraf_id}
 
 Dette vil slette posten. Skal kun brukes på nylig opprettede poster fra Biblioteksentralen uten noen tilkoblinger i Oria (sjekk https://bsaut.toolforge.org/)
 
@@ -115,7 +115,7 @@ Dette vil slette posten. Skal kun brukes på nylig opprettede poster fra Bibliot
 
 For å verifisere alle mappinger fra Bibbi til Noraf:
 
-    poetry run verify_bibbi_noraf_mappings
+    uv run verify_bibbi_noraf_mappings
 
 OBS: Scriptet vil automatisk fikse følgende trivielle feil:
 
@@ -140,11 +140,11 @@ Videre produserer scriptet to rapporter:
 
 Dette scriptet trenger en oppdatert dump fra OAI-PMH:
 
-    poetry run oai harvest noraf ../oai_harvest
+    uv run oai harvest noraf ../oai_harvest
 
 (Dumpen oppdateres inkrementelt hvis det eksisterer en fullstendig dump fra før)
 
-    poetry run verify_noraf_bibbi_mappings ../oai_harvest
+    uv run verify_noraf_bibbi_mappings ../oai_harvest
 
 OBS: Scriptet vil automatisk fikse følgende trivielle feil:
 

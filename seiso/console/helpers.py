@@ -3,15 +3,13 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from openpyxl import Workbook
 from openpyxl.cell import WriteOnlyCell
 from openpyxl.styles import Font, PatternFill
 from tqdm import tqdm
 
-from seiso.common.noraf_record import NorafJsonRecord
-from seiso.common.interfaces import Person, NorafPerson  #, BibbiPerson
 from seiso.common.logging import setup_logging
 
 log = setup_logging(level=logging.INFO)
@@ -25,7 +23,10 @@ class ReportHeader(object):
 
 
 def storage_path(dirname: Optional[str] = None, create: bool = True) -> Path:
-    path = Path(os.getenv('STORAGE_PATH')).expanduser()
+    STORAGE_PATH = os.getenv("STORAGE_PATH")
+    if STORAGE_PATH is None:
+        raise ValueError("STORAGE_PATH environment variable not set")
+    path = Path(STORAGE_PATH).expanduser()
     if dirname is not None:
         path = path.joinpath(dirname)
     if create:

@@ -208,7 +208,7 @@ def main():
     to_delete = 0
 
     items_map = list_items('651')
-    all_geo = list(promus.authorities.geographic.list())
+    all_geo = list(promus.authorities.geographic.list_records())
     approved_geo = {clean_label(x._DisplayValue): x for x in all_geo if x.Approved}
 
     for authority in all_geo:

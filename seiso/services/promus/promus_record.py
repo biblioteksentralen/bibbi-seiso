@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from dataclasses import dataclass, field, InitVar, fields, Field
 import logging
@@ -13,7 +14,8 @@ from typing import (
     ClassVar,
 )
 
-from seiso.services.promus.promus import Promus
+if TYPE_CHECKING:
+    from seiso.services.promus.promus import Promus
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +114,7 @@ class PromusCollection(Generic[TPromusRecord]):
         query = """
             SELECT {primary_key} AS primary_key,
                    {select_columns}
-            FROM {table} AS authority 
+            FROM {table} AS authority
             {where_stmt}
         """.format(
             primary_key=self.primary_key_column,

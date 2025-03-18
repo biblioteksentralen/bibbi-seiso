@@ -1,8 +1,12 @@
+from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from seiso.services.promus.authorities import PromusRecord
-from seiso.services.promus.promus import Promus
 from seiso.services.promus.promus_record import PromusCollection
+
+
+if TYPE_CHECKING:
+    from seiso.services.promus.promus import Promus
 
 
 @dataclass

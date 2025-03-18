@@ -1,8 +1,12 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from dataclasses import InitVar, dataclass
 from typing import Generator
 
-from seiso.services.promus.promus import Promus
 from seiso.services.promus.promus_record import PromusRecord
+
+if TYPE_CHECKING:
+    from seiso.services.promus.promus import Promus
 
 
 @dataclass
@@ -25,7 +29,7 @@ class ItemCollection:
         query = """
             SELECT
                item.Bibbinr AS id,
-               item.Item_ID AS primary_key, 
+               item.Item_ID AS primary_key,
                item.Varenr AS product_key,
                item.Title AS title
             FROM Item AS item

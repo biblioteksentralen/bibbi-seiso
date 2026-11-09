@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -42,22 +43,22 @@ def setup_logging(path: Optional[Path] = None, level=logging.INFO):
 
     if not path.exists():
         logging.basicConfig(level=level, force=True)
-        print('Failed to load configuration file. Using default configs')
+        print('Failed to load configuration file. Using default configs', file=sys.stderr)
         return logging.getLogger()
 
     with path.open('r') as f:
         try:
-            log_dir = Path(os.getenv('STORAGE_PATH')).joinpath(os.getenv('LOG_PATH'))
-            if not log_dir.exists():
-                log_dir.mkdir(parents=True)
+            storage_path = Path(os.getenv('STORAGE_PATH') or '.').expanduser()
+            log_dir = storage_path.joinpath(os.getenv('LOG_PATH') or 'logs')
+            log_dir.mkdir(parents=True, exist_ok=True)
 
             config_data = f.read().replace('{{log-path}}', str(log_dir))
             config = yaml.safe_load(config_data)
 
             logging.config.dictConfig(config)
         except Exception as e:
-            print(e)
-            print('Error in Logging Configuration. Using default configs')
+            print(e, file=sys.stderr)
+            print('Error in Logging Configuration. Using default configs', file=sys.stderr)
             logging.basicConfig(level=level)
 
     logging.getLogger('requests').setLevel(logging.WARNING)
